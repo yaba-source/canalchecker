@@ -1,0 +1,31 @@
+Pseudo code 
+Dauer schleife 
+ aktuellepose= Lese_Ros_Topic (/pose)
+ Ziel
+
+Toleranz
+was ist das Ziel ?
+was ist die Toleranz zum Ziel
+
+State maschine 
+case 10 
+Berechnen aus Ziel und aktuellepose die distanz der X/Y Koordinaten
+Berechne Winkel zu Ziel pose
+
+case =20
+------------
+Case 20 
+Drehe Winkel zur zielposition
+
+ziel erreicht ?
+case=30
+-----------------------
+case 30
+fahre zur Postion (cmd_vel)
+ziel erreicht ?
+
+--------------------
+case 40
+Wenn Distanz kleiner der Toleranz ist 
+	Ausgabe Ziel erreicht 
+	Stope Robi
