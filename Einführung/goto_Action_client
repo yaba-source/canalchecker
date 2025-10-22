@@ -6,4 +6,6 @@ class GotoActionClient (Node)
     def __init__(self)
         super.__init__('goto_action_client')
         self._action_.client =ActionClient(self,Goto,'goto')
-    def 
+
+    self get
+    
