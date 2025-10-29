@@ -24,7 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'action_mover_server = action_mover_server.action_mover_server:main'
+            'action_mover_server = action_mover_server.action_mover_server:main',
+            'action_mover_client = action_mover_server.action_mover_client:main'
         ],
     },
 )

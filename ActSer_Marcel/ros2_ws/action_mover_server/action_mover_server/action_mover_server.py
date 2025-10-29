@@ -1,16 +1,13 @@
-#------------------------------#
-#   EXTERNAL LIBRARY IMPORT    #
-#------------------------------#
-
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 
 from geometry_msgs.msg import Twist
-from nav_msgs import Odometry
+from nav_msgs.msg import Odometry
 from tf_transformations import euler_from_quaternion
 
 from action_server_interface.action import GoTo
+from .logic import *
 
 class ActionMoverServer(Node):
     def __init__(self):
@@ -56,11 +53,15 @@ class ActionMoverServer(Node):
         """
         
         self.msg_stdout("Executing move to new Coordinates...", "info")
-        i = 10
-        # TODO: CONTINUE HERE
+        RobotMovement.GoalParameters(self, goal_handle.request.pose.x, goal_handle.request.pose.y, goal_handle.request.pose.theta)
+        RobotMovement.ExecMovement(self)
+
+        result = GoTo.Result()
+        result.success = True
+        return result
 
 
-    def goal_callback_fnc(self) -> GoalResponse:
+    def goal_callback_fnc(self, goal_request) -> GoalResponse:
         """
         Checks wheter goal is accepted or not. For now, every Goal is accepted.
         """
