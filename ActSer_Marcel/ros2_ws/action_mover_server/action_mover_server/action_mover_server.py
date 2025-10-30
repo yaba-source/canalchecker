@@ -15,7 +15,7 @@ class ActionMoverServer(Node):
 
         # Last pose in form [x, y, theta]
         self.last_pose = [None, None, None]
-        self.goal_handle = None
+        self.goal_handler = None
 
         self.action_server = ActionServer(
             self,
@@ -41,11 +41,48 @@ class ActionMoverServer(Node):
             'cmd_vel',
             10
         )
+        self.timer = self.create_timer(0.5, self.timer_callback_fnc)
         self.msg_stdout("Server now Publishing to topic 'cmd_vel'.", "info")
         self.msg_stdout("Server Init Complete. No Problems Detected.", "info")
         self.msg_stdout("Awaiting Client input!", "info")
 
     
+    def timer_callback_fnc(self):
+        """
+        Gets called every specified timer interval. Acts similar to a loop.
+        """
+
+        output = RobotMovement.Output(self)
+
+        if self.goal_handler is not None:
+            RobotMovement.ExecMovement(self)
+
+            twist = Twist()
+            twist.linear.x = float(output.linear.x)
+            twist.linear.y = float(output.linear.y)
+            twist.angular.z = float(output.angular.z)
+            self.command_publish.publish(twist)
+
+            feedback = GoTo.Feedback()
+            feedback.dist_to_goal = float(output.distance_remaining)
+            self.goal_handler.publish_feedback(feedback)
+        
+        if output.finish:
+            result = GoTo.Result()
+            result.success = output.success
+
+            if output.success:
+                self.goal_handler.succeed()
+            else:
+                self.goal_handler.abort()
+
+            RobotMovement.ResetMissionFlag(self)
+
+            self.goal_finished = True
+            self.goal_result = result
+            self.goal_handler = None
+
+
     def execute_callback_fnc(self, goal_handle):
         """
         If a Goal has been accepted and is to be executed, this function is called.
@@ -56,10 +93,13 @@ class ActionMoverServer(Node):
         RobotMovement.GoalParameters(self, goal_handle.request.pose.x, goal_handle.request.pose.y, goal_handle.request.pose.theta)
         RobotMovement.ExecMovement(self)
 
-        result = GoTo.Result()
-        result.success = True
-        return result
+        self.goal_finished = False
+        self.goal_result = None
 
+        while not self.goal_finished:
+            rclpy.spin_once(self, timeout_sec=0.5)
+        
+        return self.goal_result
 
     def goal_callback_fnc(self, goal_request) -> GoalResponse:
         """
@@ -75,10 +115,10 @@ class ActionMoverServer(Node):
         If a new Goal is accepted, this function is called.
         """
         
-        if self.goal_handle is not None and self.goal_handle.is_active:
+        if self.goal_handler is not None and self.goal_handler.is_active:
             self.msg_stdout("\nReplacing active goal with new goal.\n", "info")
-            self.goal_handle.abort()
-        self.goal_handle = goal_handle
+            self.goal_handler.abort()
+        self.goal_handler = goal_handle
         goal_handle.execute()
 
 
@@ -91,7 +131,7 @@ class ActionMoverServer(Node):
         return CancelResponse.ACCEPT
 
 
-    def odom_callback_fnc(self, msg):
+    def odom_callback_fnc(self, msg: Odometry) -> None:
         theta = None
         theta = euler_from_quaternion(
             [
@@ -104,6 +144,10 @@ class ActionMoverServer(Node):
         self.last_pose[0] = msg.pose.pose.position.x
         self.last_pose[1] = msg.pose.pose.position.y
         self.last_pose[2] = theta
+
+        self.get_logger().info(f"Pos. X: {self.last_pose[0]}" f"Pos. Y: {self.last_pose[1]}" f"Angle: {self.last_pose[2]}")
+        RobotMovement.CurrentPos(self, self.last_pose[0], self.last_pose[1], self.last_pose[2])
+        RobotMovement.SpeedParameter(self, msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.angular.z)
 
 
     def msg_stdout(self, string: str, severity: str) -> None:
