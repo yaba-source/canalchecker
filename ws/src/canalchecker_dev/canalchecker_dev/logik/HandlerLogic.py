@@ -4,7 +4,7 @@ First call is align then Drive an if follow id is detected Follow
 """
 
 
-class stateMachine:
+class StateMachine:
     def __init__(self):
         self.state =10
         self.error=None
