@@ -24,8 +24,8 @@ endif()
 find_package(rosidl_default_generators REQUIRED)
 
 set(action_files
-  "action/Align.action",
-  "action/Drive.action",
+  "action/Align.action"
+  "action/Drive.action"
   "action/Follow.action"
 )
 
