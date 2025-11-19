@@ -8,6 +8,7 @@ class StateMachine:
     def __init__(self):
         self.state =10
         self.error=None
+        self.logger=None
         self.align_done = False
         self.drive_done = False
         self.follow_done = False

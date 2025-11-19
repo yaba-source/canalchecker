@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from canalchecker_interface.action import Align, Follow, Drive
-from logik.HandlerLogic import StateMachine
+from .logik.HandlerLogic import StateMachine
 
 class ActionServerHandler(Node):
     def __init__(self):
@@ -117,7 +117,6 @@ def main(args=None):
         handler.get_logger().info('Handler stopped')
     
     finally:
-        handler.destroy_node()
         rclpy.shutdown()
 
 if __name__ == '__main__':
