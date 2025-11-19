@@ -49,8 +49,8 @@ class FollowActionServer(Node):
             result.success = True
             self.goal_handler.succeed()
             self.goal_finished = True
+            self.goal_result = result
             self.goal_handler = None
-            self.timer.cancel()
 
 
     def listener_callback_fnc(self, msg: Odometry):
@@ -67,7 +67,7 @@ class FollowActionServer(Node):
         self.goal_finished = False
         self.goal_result = None
 
-        while not self.goal_finished:
+        while (self.goal_finished==False):
             rclpy.spin_once(self, timeout_sec=0.1)
         
         return self.goal_result
