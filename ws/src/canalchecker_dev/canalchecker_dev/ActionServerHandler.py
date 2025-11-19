@@ -10,18 +10,13 @@ from logik.HandlerLogic import StateMachine
 class ActionServerHandler (Node):
     def __init__(self):
         super().init_('actionserverhandler')
-        
         self.state_machine=StateMachine(logger=self.get_logger())
-        
-        
         self.actionserveralign=self.create_client(self,Align, 'align'),
         self.actionserverdrive=self.create_client(self,Drive, 'drive'),
         self.actionserverfollow=self.create_client(self,Follow, 'follow')
 
         self.timer = self.create_timer(0.1, self.state_machine_loop)
-        
         self.current_state = None
-      
         self.get_logger().info('Handler started')
         
     def run(self):
@@ -33,21 +28,18 @@ class ActionServerHandler (Node):
     def send_goal_for_state(self):
         """Sendet Goal basierend auf aktuellem State"""
         if self.state_machine.state == 10:
-            self.get_logger().info("Sende Align Goal")
+            self.get_logger().info("Starte Align Server")
             goal_msg = Align.Goal()
-            # Konfiguriere Align Goal hier
-            self.send_goa l('align', goal_msg)
+            self.send_goal('align', goal_msg)
         
         elif self.state_machine.state == 20:
             self.get_logger().info("Sende Drive Goal")
             goal_msg = Drive.Goal()
-            # Konfiguriere Drive Goal hier
             self.send_goal('drive', goal_msg)
         
         elif self.state_machine.state == 30:
             self.get_logger().info("Sende Follow Goal")
             goal_msg = Follow.Goal()
-            # Konfiguriere Follow Goal hier
             self.send_goal('follow', goal_msg)
 
 
@@ -90,7 +82,7 @@ class ActionServerHandler (Node):
     
     def get_result_callback(self, promise):
         """Answer from Server if done"""
-       if self.current_action == 'align':
+        if self.current_action == 'align':
             self.state_machine.set_align_done()
             self.get_logger().info('Align Server: fertig')
         
