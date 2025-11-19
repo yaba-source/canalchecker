@@ -51,7 +51,7 @@ class FollowActionServer(Node):
             self.goal_finished = True
             self.goal_handler = None
         else:
-            self.destroy_timer()
+            self.destroy_timer(self)
 
 
     def listener_callback_fnc(self, msg: Odometry):
