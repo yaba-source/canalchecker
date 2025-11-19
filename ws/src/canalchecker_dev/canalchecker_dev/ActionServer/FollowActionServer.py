@@ -40,18 +40,17 @@ class FollowActionServer(Node):
         if self.goal_handler is not None:
             # For-loop später entfernen und mit logik / logikcalls ersetzen
             for i in range(10):
-                self.get_logger().info("Current: ", i)
+                self.get_logger().info(str(i))
                 feedback = Follow.Feedback()
                 feedback.dist_to_robot = float(i)
                 self.goal_handler.publish_feedback(feedback)
                 time.sleep(0.5)
             result = Follow.Result()
-            result.reached
+            result.success = True
             self.goal_handler.succeed()
             self.goal_finished = True
             self.goal_handler = None
-        else:
-            self.destroy_timer(self)
+            self.timer.cancel()
 
 
     def listener_callback_fnc(self, msg: Odometry):
