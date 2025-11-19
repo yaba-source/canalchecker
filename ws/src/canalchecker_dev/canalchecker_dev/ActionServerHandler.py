@@ -1,24 +1,23 @@
-import  rclpy
+import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
-from rclpy.node import Node
-from canalchecker_interface import Align
-from canalchecker_interface import Follow
-from canalchecker_interface import Drive
+from canalchecker_interface.action import Align, Follow, Drive
 from logik.HandlerLogic import StateMachine
 
-class ActionServerHandler (Node):
+class ActionServerHandler(Node):
     def __init__(self):
-        super().init_('actionserverhandler')
-        self.state_machine=StateMachine(logger=self.get_logger())
-        self.actionserveralign=self.create_client(self,Align, 'align'),
-        self.actionserverdrive=self.create_client(self,Drive, 'drive'),
-        self.actionserverfollow=self.create_client(self,Follow, 'follow')
-
+        super().__init__('actionserverhandler')
+        self.state_machine = StateMachine(logger=self.get_logger())
+        
+        self.actionserveralign = ActionClient(self, Align, 'align')
+        self.actionserverdrive = ActionClient(self, Drive, 'drive')
+        self.actionserverfollow = ActionClient(self, Follow, 'follow')
+        
         self.timer = self.create_timer(0.1, self.state_machine_loop)
         self.current_state = None
         self.get_logger().info('Handler started')
-        
+
+
     def run(self):
         """ Starts the State Machine """
         if self.current_action is None:
