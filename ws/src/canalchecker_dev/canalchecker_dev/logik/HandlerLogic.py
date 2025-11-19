@@ -6,7 +6,7 @@ First call is align then Drive an if follow id is detected Follow
 
 class stateMachine:
     def __init__(self):
-        self.state =0
+        self.state =10
         self.error=None
         self.align_done = False
         self.drive_done = False
