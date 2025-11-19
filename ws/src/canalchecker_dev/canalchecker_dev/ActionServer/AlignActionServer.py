@@ -2,9 +2,22 @@ import rclpy
 from rclpy.action import ActionServer
 from rclpy.node import Node
 from canalchecker_interface.action import Align
+import math, time
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
+
+#from .logic import Logic
+
+def quaternion_to_yaw(q):
+    """
+    q: ein Objekt mit x, y, z, w 
+    Rückgabe: yaw in Radiant
+    """
+    siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+    cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    yaw = math.atan2(siny_cosp, cosy_cosp)
+    return yaw
 
 class AlignActionServer(Node):
     def __init__(self):
@@ -32,14 +45,43 @@ class AlignActionServer(Node):
 
         self.timer = self.create_timer(0.1, self.timer_callback_fnc)
 
+
     def timer_callback_fnc(self):
-        pass
+        if self.goal_handler is not None:
+            # For-loop später entfernen und mit logik / logikcalls ersetzen
+            for i in range(10):
+                self.get_logger().info("Current: ", i)
+                feedback = Align.Feedback()
+                feedback.angle_to_goal = float(i)
+                self.goal_handler.publish_feedback(feedback)
+                time.sleep(0.5)
+            result = Align.Result()
+            result.reached
+            self.goal_handler.succeed()
+            self.goal_finished = True
+            self.goal_handler = None
+        else:
+            self.destroy_timer()
 
-    def listener_callback_fnc(self):
-        pass
 
-    def execute_callback_fnc(self):
-        pass
+    def listener_callback_fnc(self, msg: Odometry):
+        """
+        Gibt den Winkel in rad auf stdout aus, wenn dieser sich ändern.
+        """
+        
+        self.get_logger().info(f"Angle: {quaternion_to_yaw(msg.pose.pose.orientation):}")
+
+
+    def execute_callback_fnc(self, goal_handle):
+        self.get_logger().info('Goal Received! Aligning to Target.')
+        self.goal_handler = goal_handle
+        self.goal_finished = False
+        self.goal_result = None
+
+        while not self.goal_finished:
+            rclpy.spin_once(self, timeout_sec=0.1)
+        
+        return self.goal_result
 
 
 def main():
