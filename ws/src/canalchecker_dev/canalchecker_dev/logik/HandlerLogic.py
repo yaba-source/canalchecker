@@ -5,10 +5,10 @@ First call is align then Drive an if follow id is detected Follow
 
 
 class StateMachine:
-    def __init__(self):
+    def __init__(self,logger=None):
         self.state =10
         self.error=None
-        self.logger=None
+        self.logger=logger
         self.align_done = False
         self.drive_done = False
         self.follow_done = False
@@ -42,18 +42,12 @@ class StateMachine:
     
     def drive_state(self):
        
-        #    if self.aruco_detected and self.aruco_id == 69:
-         #       if self.logger:
-          #          self.logger.info("Aruco ID 69 detected, moving to Follow")
-           #     self.state = 30
-            #else:
-             if self.drive_done:
-                if self.logger:
-                    self.logger.info("Drive completed, returning to Align")
+        if self.drive_done:
+            if self.logger:
+                self.logger.info("Drive completed, returning to Align")
                 self.state = 10
-            
                 self.drive_done = False
-            #self.aruco_detected = False
+          
     def follow_state(self):
         """State 30: Follow Server"""
         if self.logger:
@@ -77,8 +71,4 @@ class StateMachine:
         """Handler will set if follow done"""
         self.follow_done = True
 
-    #def set_aruco_detected(self, aruco_id):
-      #  """Wird vom Handler aufgerufen wenn Aruco erkannt wurde"""
-      #  self.aruco_detected = True
-       # self.aruco_id = aruco_id
     
