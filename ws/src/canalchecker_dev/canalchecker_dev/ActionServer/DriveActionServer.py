@@ -16,9 +16,9 @@ class DriveActionServer(Node):
             self,
             Drive,
             'drive',
-            self.execute_callback_fnc
+            self.execute_callback_fnc #Zuweisung von Phython verwenden  #default verhalten checken
         )
-        self.goal_handler = None
+        self.goal_handle = None
 
         self.publisher = self.create_publisher(
             Twist,
@@ -37,37 +37,37 @@ class DriveActionServer(Node):
 
 
     def timer_callback_fnc(self):
-        if self.goal_handler is not None:
-            # For-loop später entfernen und mit logik / logikcalls ersetzen
+        if self.goal_handle is not None:
+            # For-loop später entfernen und mit logik / logikcalls ersetzen Timer verschrotten
             for i in range(10):
                 self.get_logger().info(str(i))
                 feedback = Drive.Feedback()
                 feedback.dist_to_goal = float(i)
-                self.goal_handler.publish_feedback(feedback)
+                self.goal_handle.publish_feedback(feedback) #Odometrie werte mit ausgeben 
                 time.sleep(0.5)
             result = Drive.Result()
             result.reached = True
-            self.goal_handler.succeed()
+            self.goal_handle.succeed()
             self.goal_finished = True
             self.goal_result = result
-            self.goal_handler = None
+            self.goal_handle = None
 
 
     def listener_callback_fnc(self, msg: Odometry):
         """
-        Gibt die Koordinaten X und Y der Odometrie auf Stdout aus, wenn diese sich ändern.
+        Gibt die Koordinaten X und Y der Odometrie auf Stdout aus, wenn diese sich ändern. 
         """
-        
+        #Logik hier implemtieren 
         self.get_logger().info(f"Pos X: {msg.pose.pose.position.x:.3f} " f"Pos Y: {msg.pose.pose.position.y:.3f}")
 
 
-    def execute_callback_fnc(self, goal_handle):
+    def execute_callback_fnc(self, goal_handle): #Multithreaded Executer
         self.get_logger().info('Goal Received! Driving.')
-        self.goal_handler = goal_handle
+        self.goal_handle = goal_handle
         self.goal_finished = False
         self.goal_result = None
 
-        while (self.goal_finished==False):
+        while (self.goal_finished==False):#Ändern auf Multithread
             rclpy.spin_once(self, timeout_sec=0.1)
         
         return self.goal_result
