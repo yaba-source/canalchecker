@@ -2,8 +2,8 @@ import cv2 as cv
 import cv2.aruco as aruco
 import numpy as np
 import math
-from .MachineVision.CameraCalibration import CameraCalibration
-from .MachineVision.PictureProcessing import PictureProcessing
+#from .MachineVision.CameraCalibration import CameraCalibration
+#from .MachineVision.PictureProcessing import PictureProcessing
 
 
 
@@ -86,6 +86,3 @@ class ArucoMarkerDetector:
         
         return angle_to_marker, distance
     
-
-
-         
