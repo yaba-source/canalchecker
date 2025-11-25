@@ -10,15 +10,11 @@ class PictureProcessing:
         self.aruco_detector = ArucoMarkerDetector(camera_calib=camera_calib)
         self.cap = cv.VideoCapture(0)
 
-    def get_frame(self):
-        
+    def process_frame(self):
         ret, frame = self.cap.read()
         if not ret:
             return None
-        return frame
 
-    def process_frame(self, frame):
-      
         if self.aruco_detector.detect_markers(frame):
             self.aruco_detector.estimate_pose()
             return (True, 
@@ -28,8 +24,4 @@ class PictureProcessing:
         
         return False, None, None, None
 
-    def release_camera(self):
-        
-        if self.cap.isOpened():
-            self.cap.release()
 
