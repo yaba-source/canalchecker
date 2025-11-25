@@ -8,7 +8,7 @@ class ArucoMarkerDetector:
         
         self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_1000)
         self.aruco_params = cv.aruco.DetectorParameters()
-        self.marker_size_cm = 17,5
+        self.marker_size_mm = 175
         """
         @Todo: Camera calibration integration
             
@@ -47,7 +47,7 @@ class ArucoMarkerDetector:
             return None, None
         
         self.rvecs, self.tvecs, _ = cv.aruco.estimatePoseSingleMarkers(
-            self.corners, self.marker_size_cm, self.camera_matrix, self.dist_coeffs)
+            self.corners, self.marker_size_mm, self.camera_matrix, self.dist_coeffs)
         
         self.distances = []
         self.angles = []
