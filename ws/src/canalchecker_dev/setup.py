@@ -27,7 +27,9 @@ setup(
             'FollowActionServer = canalchecker_dev.ActionServer.FollowActionServer:main',
             'AlignActionServer = canalchecker_dev.ActionServer.AlignActionServer:main',
             'DriveActionServer = canalchecker_dev.ActionServer.DriveActionServer:main',
-            'ActionServerHandler = canalchecker_dev.ActionServerHandler:main'
+            'ActionServerHandler = canalchecker_dev.ActionServerHandler:main',
+            'CameraNode = canalchecker_dev.MachineVision.CameraNode:main',
+            'TestNode = canalchecker_dev.MachineVision.TestNode:main'
         ],
     },
 )
