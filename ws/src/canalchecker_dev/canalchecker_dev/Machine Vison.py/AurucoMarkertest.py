@@ -16,15 +16,13 @@ class ArucoMarkerDetector:
         self.aruco_params = cv.aruco.DetectorParameters()
         self.marker_size_mm = 175  
         
-        """
         if camera_calib is not None:
             self.camera_matrix = camera_calib.camera_matrix
             self.dist_coeffs = camera_calib.dist_coeffs
         else:
             
-            self.camera_matrix = 
-            self.dist_coeffs = 
-       """
+            self.camera_matrix = np.array([[800, 0, 320], [0, 800, 240], [0, 0, 1]], dtype=np.float32)
+            self.dist_coeffs = np.zeros((4, 1))
         
 
         self.frame = None
@@ -46,7 +44,7 @@ class ArucoMarkerDetector:
         Returns:
             bool: True if markers detected, False otherwise
         """
-        self.frame= PictureProcessing().convert_ros_to_cv()
+        self.frame = frame
         self.gray = cv.cvtColor(self.frame, cv.COLOR_BGR2GRAY)
         detector = cv.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
         self.corners, self.ids, self.rejected = detector.detectMarkers(self.gray)
@@ -86,3 +84,18 @@ class ArucoMarkerDetector:
         
         return angle_to_marker, distance
     
+
+
+
+
+def main():    
+    
+    detector = ArucoMarkerDetector()
+    frame = cv.imread('/home/yb/Test/picture5.png')
+    if detector.detect_markers(frame):
+        angle, distance = detector.estimate_pose()
+        print(f"Angle to Marker: {angle} degrees")
+        print(f"Distance to Marker: {distance} mm")
+
+if __name__ == "__main__":
+    main()  

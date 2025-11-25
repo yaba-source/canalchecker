@@ -1,26 +1,35 @@
 import cv2 as cv
-import cv2.bridge as bridge
 import numpy as np
 import math
-#from .MachineVision.CameraNode import RosCameraNode
+from .ArucoMarkerDetector import ArucoMarkerDetector
+
 
 class PictureProcessing:
-    def __init__(self):
-        """
-        Initialize PictureProcessing.
-        """
-        self.bridge = bridge.CvBridge()
-
-    def convert_ros_to_cv(self, ros_image):
-        """
-        Convert ROS image message to OpenCV image.
+    def __init__(self, camera_calib=None):
         
-        Args:
-            ros_image: ROS image message
-            
-        Returns:
-            cv_image: OpenCV image
-        """
-        cv_image = self.bridge.imgmsg_to_cv2(ros_image, desired_encoding='bgr8')
-        print("Converted ROS image to OpenCV format.")
-        return cv_image
+        self.aruco_detector = ArucoMarkerDetector(camera_calib=camera_calib)
+        self.cap = cv.VideoCapture(0)
+
+    def get_frame(self):
+        
+        ret, frame = self.cap.read()
+        if not ret:
+            return None
+        return frame
+
+    def process_frame(self, frame):
+      
+        if self.aruco_detector.detect_markers(frame):
+            self.aruco_detector.estimate_pose()
+            return (True, 
+                    self.aruco_detector.ids,
+                    self.aruco_detector.distances,
+                    self.aruco_detector.angles)
+        
+        return False, None, None, None
+
+    def release_camera(self):
+        
+        if self.cap.isOpened():
+            self.cap.release()
+
