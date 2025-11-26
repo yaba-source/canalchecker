@@ -1,6 +1,7 @@
 import random # Für finalen code unnötig (entfernen)
 import rclpy
 from rclpy.node import Node
+from .PictureProcessing import PictureProcessing
 
 from std_msgs.msg import UInt32, Bool
 
@@ -40,11 +41,14 @@ class CameraNode(Node):
         aruco_angle = UInt32()
         aruco_id = UInt32()
 
+        image_processed = PictureProcessing.process_frame()
+        list(image_processed)
+
         # 'random' durch funktionscalls ersetzen
-        aruco_dist.data = random.randint(0, 10)
-        aruco_detected.data = bool(random.randint(0, 1))
-        aruco_angle = random.randint(0, 360)
-        aruco_id = random.randint(0, 999)
+        aruco_dist.data = image_processed[2]
+        aruco_detected.data = image_processed[0]
+        aruco_angle = image_processed[3]
+        aruco_id = image_processed[1]
         
         self.publisher_dist.publish(aruco_dist)
         self.publisher_detected.publish(aruco_detected)
