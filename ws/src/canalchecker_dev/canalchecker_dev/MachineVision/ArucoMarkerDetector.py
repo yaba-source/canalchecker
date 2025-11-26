@@ -52,7 +52,7 @@ class ArucoMarkerDetector:
         if self.ids is None or len(self.corners) == 0:
             return None, None
         
-        self.rvecs, self.tvecs, _ = cv.aruco.estimatePoseSingleMarkers(
+        self.rvecs, self.tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
             self.corners, self.marker_size, self.camera_matrix, self.dist_coeffs)
         
         self.distances = []

@@ -21,11 +21,31 @@ class TestNode(Node):
             10
         )
 
+        self.sub1 = self.create_subscription(
+            UInt32,
+            '/aruco_angle',
+            self.listener_callback_fnc3,
+            10
+        )
+
+        self.sub1 = self.create_subscription(
+            Bool,
+            '/aruco_id',
+            self.listener_callback_fnc4,
+            10
+        )
+
     def listener_callback_fnc1(self, msg: UInt32):
         self.get_logger().info(f'Distance: {msg.data}')
 
     def listener_callback_fnc2(self, msg: Bool):
         self.get_logger().info(f'Detected: {msg.data}')
+
+    def listener_callback_fnc3(self, msg: UInt32):
+        self.get_logger().info(f'angle: {msg.data}')
+
+    def listener_callback_fnc4(self, msg: Bool):
+        self.get_logger().info(f'ID: {msg.data}')
 
 
 def main():

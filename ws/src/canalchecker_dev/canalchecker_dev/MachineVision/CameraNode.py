@@ -41,7 +41,8 @@ class CameraNode(Node):
         aruco_angle = UInt32()
         aruco_id = UInt32()
 
-        image_processed = PictureProcessing.process_frame()
+        functioncall = PictureProcessing()
+        image_processed = functioncall.process_frame()
         list(image_processed)
 
         # 'random' durch funktionscalls ersetzen
@@ -52,8 +53,8 @@ class CameraNode(Node):
         
         self.publisher_dist.publish(aruco_dist)
         self.publisher_detected.publish(aruco_detected)
-        self.publisher_angle.publish(aruco_angle)
-        self.publisher_id.publish(aruco_id)
+        #self.publisher_angle.publish(aruco_angle)
+        #self.publisher_id.publish(aruco_id)
 
 
 def main():
