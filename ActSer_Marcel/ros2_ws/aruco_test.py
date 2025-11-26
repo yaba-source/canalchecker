@@ -18,7 +18,7 @@ dist_coeffs = np.array([
 
 
 # Reale Marker-Kantenlänge in Metern (oder cm)
-MARKER_LENGTH = 0.05  # z.B. 5 cm = 0.05 m
+MARKER_LENGTH = 0.175  # z.B. 5 cm = 0.05 m
 
 def main():
     # Bei TurtleBot ggf. /dev/videoX oder GStreamer/ROS-Bridge verwenden
