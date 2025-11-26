@@ -1,4 +1,4 @@
-mport cv2 as cv
+import cv2 as cv
 from .ArucoMarkerDetector import ArucoMarkerDetector
 
 class PictureProcessing:
