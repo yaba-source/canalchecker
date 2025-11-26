@@ -2,8 +2,8 @@ mport cv2 as cv
 from .ArucoMarkerDetector import ArucoMarkerDetector
 
 class PictureProcessing:
-    def __init__(self, camera_calib=None):
-        self.aruco_detector = ArucoMarkerDetector(camera_calib=camera_calib)
+    def __init__(self):
+        self.aruco_detector = ArucoMarkerDetector()
         self.cap = cv.VideoCapture(0)
         
         # Public Variablen
