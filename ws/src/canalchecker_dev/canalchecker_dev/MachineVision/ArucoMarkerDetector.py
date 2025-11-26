@@ -4,7 +4,7 @@ import numpy as np
 import math
 
 class ArucoMarkerDetector:
-    def __init__(self, camera_calib=None):
+    def __init__(self):
         
         self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_1000)
         self.aruco_params = cv.aruco.DetectorParameters()
