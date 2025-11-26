@@ -4,8 +4,8 @@ import numpy as np
 import os
 
 # ==== Anpassen ====
-CHECKERBOARD = (9, 6)   # (innere Ecken pro Zeile, Spalte)
-SQUARE_SIZE  = 0.025    # Kantenlänge eines Quadrats in m (25 mm)
+CHECKERBOARD = (7, 9)   # (innere Ecken pro Zeile, Spalte)
+SQUARE_SIZE  = 0.020    # Kantenlänge eines Quadrats in m (20 mm)
 IMAGE_DIR    = "images"
 OUT_FILE     = "picam_calib.npz"
 # ===================
@@ -60,7 +60,7 @@ for fname in images:
 
 cv2.destroyAllWindows()
 
-if len(objpoints) < 5:
+if len(objpoints) < 1:
     print("Zu wenige gültige Bilder mit erkanntem Schachbrett:", len(objpoints))
     exit(1)
 
@@ -68,6 +68,7 @@ ret, cameraMatrix, distCoeffs, rvecs, tvecs = cv2.calibrateCamera(
     objpoints, imgpoints, img_size, None, None
 )
 
+print("Erkannte Bilder: ", len(objpoints))
 print("RMS-Fehler:", ret)
 print("Kamera-Matrix:\n", cameraMatrix)
 print("Verzerrungskoeffizienten:\n", distCoeffs.ravel())
