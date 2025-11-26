@@ -22,6 +22,6 @@ class PictureProcessing:
                     self.aruco_detector.distances,
                     self.aruco_detector.angles)
         
-        return False, None, None, None
+        return False, 1000, 0, 0
 
 
