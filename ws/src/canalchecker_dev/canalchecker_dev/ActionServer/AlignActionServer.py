@@ -1,13 +1,16 @@
 import rclpy
-from rclpy.action import ActionServer
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.action import ActionServer, GoalResponse
 from rclpy.node import Node
 from canalchecker_interface.action import Align
-import math, time
+import math
+import time
+import threading
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 
-#from .logic import Logic
 
 def quaternion_to_yaw(q):
     """
@@ -19,23 +22,26 @@ def quaternion_to_yaw(q):
     yaw = math.atan2(siny_cosp, cosy_cosp)
     return yaw
 
+
 class AlignActionServer(Node):
     def __init__(self):
         super().__init__('align_action_server')
-        self.action_server = ActionServer(
-            self,
-            Align,
-            'align',
-            self.execute_callback_fnc
-        )
-        self.goal_handler = None
+        
+        
+        self._goal_lock = threading.Lock()
+        self._goal_handle = None
+        
+        
+        self._last_yaw = None
 
+        
         self.publisher = self.create_publisher(
             Twist,
             '/cmd_vel',
             10
         )
 
+        
         self.sub_odom = self.create_subscription(
             Odometry,
             '/odom',
@@ -43,53 +49,82 @@ class AlignActionServer(Node):
             10
         )
 
-        self.timer = self.create_timer(0.1, self.timer_callback_fnc)
-
-
-    def timer_callback_fnc(self):
-        if self.goal_handler is not None:
-            # For-loop später entfernen und mit logik / logikcalls ersetzen
-            for i in range(10):
-                self.get_logger().info(str(i))
-                feedback = Align.Feedback()
-                feedback.angle_to_goal = float(i)
-                self.goal_handler.publish_feedback(feedback)
-                time.sleep(0.5)
-            result = Align.Result()
-            result.reached = True
-            self.goal_handler.succeed()
-            self.goal_finished = True
-            self.goal_result = result
-            self.goal_handler = None
-
+        
+        self.action_server = ActionServer(
+            self,
+            Align,
+            'align',
+            execute_callback=self.execute_callback_fnc,
+            callback_group=ReentrantCallbackGroup(),
+            goal_callback=self.goal_callback
+        )
 
     def listener_callback_fnc(self, msg: Odometry):
-        """
-        Gibt den Winkel in rad auf stdout aus, wenn dieser sich ändern.
-        """
-        
-        self.get_logger().info(f"Angle: {quaternion_to_yaw(msg.pose.pose.orientation):}")
 
+        self._last_yaw = quaternion_to_yaw(msg.pose.pose.orientation)
+        self.get_logger().info(f"Angle: {self._last_yaw}")
+
+    def goal_callback(self, goal_request):
+
+        self.get_logger().info(f'Goal received: target_angle={goal_request.target_angle}')
+        return GoalResponse.ACCEPT
 
     def execute_callback_fnc(self, goal_handle):
-        self.get_logger().info('Goal Received! Aligning to Target.')
-        self.goal_handler = goal_handle
-        self.goal_finished = False
-        self.goal_result = None
-
-        while (self.goal_finished==False):
-            rclpy.spin_once(self, timeout_sec=0.1)
+     
+        self.get_logger().info('Executing alignment to target angle')
         
-        return self.goal_result
+     
+        if self._last_yaw is None:
+            self.get_logger().warn('No odometry data received yet. Cannot align.')
+            goal_handle.abort()
+            return Align.Result(reached=False)
+
+        # Hier kommt deine Align-Logik hin
+        # Beispiel: Einfache Schleife die 10x Feedback sendet
+        for i in range(10):
+            # Prüfen ob Goal noch aktiv ist
+            if not goal_handle.is_active:
+                break
+            
+            
+            feedback = Align.Feedback()
+            feedback.angle_to_goal = float(10 - i)  # Beispielwert
+            goal_handle.publish_feedback(feedback)
+            
+         
+            cmd = Twist()
+            cmd.angular.z = 0.1  # Beispielwert
+            self.publisher.publish(cmd)
+            
+            time.sleep(0.5)
+        
+       
+        stop_cmd = Twist()
+        stop_cmd.angular.z = 0.0
+        self.publisher.publish(stop_cmd)
+        
+        
+        if goal_handle.is_active:
+            goal_handle.succeed()
+            result = Align.Result()
+            result.reached = True
+            self.get_logger().info('Alignment succeeded')
+            return result
+        else:
+            result = Align.Result()
+            result.reached = False
+            return result
 
 
 def main():
     rclpy.init()
     try:
         align_action_server = AlignActionServer()
-        rclpy.spin(align_action_server)
+        multithread_executor = MultiThreadedExecutor()
+        rclpy.spin(align_action_server, executor=multithread_executor)
     finally:
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

@@ -1,5 +1,7 @@
 import rclpy
-from rclpy.action import ActionServer
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from rclpy.node import Node
 from canalchecker_interface.action import Follow
 import time
@@ -7,25 +9,19 @@ import time
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 
-#from .logic import Logic
 
 class FollowActionServer(Node):
     def __init__(self):
         super().__init__('follow_action_server')
-        self.action_server = ActionServer(
-            self,
-            Follow,
-            'follow',
-            self.execute_callback_fnc
-        )
-        self.goal_handler = None
-
+        
+       
         self.publisher = self.create_publisher(
             Twist,
             '/cmd_vel',
             10
         )
 
+        
         self.sub_odom = self.create_subscription(
             Odometry,
             '/odom',
@@ -33,53 +29,102 @@ class FollowActionServer(Node):
             10
         )
 
-        self.timer = self.create_timer(0.1, self.timer_callback_fnc)
-
-
-    def timer_callback_fnc(self):
-        if self.goal_handler is not None:
-            # For-loop später entfernen und mit logik / logikcalls ersetzen
-            for i in range(10):
-                self.get_logger().info(str(i))
-                feedback = Follow.Feedback()
-                feedback.dist_to_robot = float(i)
-                self.goal_handler.publish_feedback(feedback)
-                time.sleep(0.5)
-            result = Follow.Result()
-            result.success = True
-            self.goal_handler.succeed()
-            self.goal_finished = True
-            self.goal_result = result
-            self.goal_handler = None
-
+        
+        self._action_server = ActionServer(
+            self,
+            Follow,
+            'follow',
+            execute_callback=self.execute_callback_fnc,
+            goal_callback=self.goal_callback_fnc,
+            cancel_callback=self.cancel_callback_fnc,
+            callback_group=ReentrantCallbackGroup()
+        )
+        
+        
+        self._last_odom = None
+        
+        self.get_logger().info('Follow Action Server initialized')
 
     def listener_callback_fnc(self, msg: Odometry):
-        """
-        Damit der Subscriber ein callback hat der callable() ist.
-        Für den FollowActionServer nicht notwendig.
-        """
-        pass
+        self._last_odom = msg
+        
 
+    def goal_callback_fnc(self, goal_request):
+        
+        self.get_logger().info(f'Follow goal received: target_id={goal_request.target_id}')
+        return GoalResponse.ACCEPT
+
+    def cancel_callback_fnc(self, goal_handle):
+        
+        self.get_logger().info('Follow goal cancel requested')
+        return CancelResponse.ACCEPT
 
     def execute_callback_fnc(self, goal_handle):
-        self.get_logger().info('Goal Received! Following Robot.')
-        self.goal_handler = goal_handle
-        self.goal_finished = False
-        self.goal_result = None
-
-        while (self.goal_finished==False):
-            rclpy.spin_once(self, timeout_sec=0.1)
         
-        return self.goal_result
+        self.get_logger().info('Executing follow action')
+        
+        
+
+        
+        for i in range(10):
+          
+            if not goal_handle.is_active:
+                self.get_logger().info('Goal is no longer active')
+                break
+            
+        
+            if goal_handle.is_cancel_requested:
+                goal_handle.canceled()
+                self.get_logger().info('Goal was canceled')
+                result = Follow.Result()
+                result.success = False
+                return result
+            
+        
+            feedback = Follow.Feedback()
+            feedback.distance_to_target = float(10 - i) 
+            goal_handle.publish_feedback(feedback)
+            
+            # Hier würde deine Follow-Logik kommen:
+            # - Berechne Abstand zum Ziel
+            # - Berechne benötigte Geschwindigkeit
+            # - Veröffentliche cmd_vel
+            
+            cmd = Twist()
+            cmd.linear.x = 0.1   
+            cmd.angular.z = 0.0  
+            self.publisher.publish(cmd)
+            
+            time.sleep(0.5)
+        
+    
+        stop_cmd = Twist()
+        stop_cmd.linear.x = 0.0
+        stop_cmd.angular.z = 0.0
+        self.publisher.publish(stop_cmd)
+        
+    
+        if goal_handle.is_active:
+            goal_handle.succeed()
+            result = Follow.Result()
+            result.success = True
+            self.get_logger().info('Follow action succeeded')
+            return result
+        else:
+            result = Follow.Result()
+            result.success = False
+            return result
 
 
 def main():
     rclpy.init()
     try:
         follow_action_server = FollowActionServer()
-        rclpy.spin(follow_action_server)
+        multithread_executor = MultiThreadedExecutor()
+        rclpy.spin(follow_action_server, executor=multithread_executor)
     finally:
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
