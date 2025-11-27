@@ -14,6 +14,8 @@ from geometry_msgs.msg import Twist
 
 def quaternion_to_yaw(q):
     """
+
+    def 
     q: ein Objekt mit x, y, z, w 
     Rückgabe: yaw in Radiant
     """
@@ -46,6 +48,8 @@ class AlignActionServer(Node):
             self.listener_callback_fnc,
             10
         )
+
+        self.sub_
 
         # Action Server
         self.action_server = ActionServer(
