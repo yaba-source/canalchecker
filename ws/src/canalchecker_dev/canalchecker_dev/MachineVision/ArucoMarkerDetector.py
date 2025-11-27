@@ -1,13 +1,12 @@
-import cv2 as cv
-import cv2.aruco as aruco
+import cv2
 import numpy as np
 import math
 
 class ArucoMarkerDetector:
     def __init__(self):
         
-        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_1000)
-        self.aruco_params = cv.aruco.DetectorParameters()
+        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+        self.aruco_params = cv2.aruco.DetectorParameters()
         self.marker_size = 0.175
         
         self.camera_matrix = np.array([
@@ -40,8 +39,8 @@ class ArucoMarkerDetector:
     def detect_markers(self, frame):
         
         self.frame = frame
-        self.gray = cv.cvtColor(self.frame, cv.COLOR_BGR2GRAY)
-        detector = cv.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
+        self.gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
+        detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
         self.corners, self.ids, self.rejected = detector.detectMarkers(self.gray)
         
         return self.ids is not None and len(self.corners) > 0
@@ -69,7 +68,7 @@ class ArucoMarkerDetector:
             self.angles.append(angle_to_marker)
             
             print(f"Marker ID: {mid}")
-            print(f"Distance to Marker: {distance} mm")
+            print(f"Distance to Marker: {distance} m")
             print(f"Angle to Marker: {angle_to_marker} degrees\n")
         
         return self.distances, self.angles

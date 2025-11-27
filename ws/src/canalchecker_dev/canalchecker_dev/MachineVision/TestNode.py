@@ -1,7 +1,7 @@
 # Testnode ob die Daten der 'CameraNode' richtig gepublisht / subscribt werden
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import UInt32, Bool
+from std_msgs.msg import UInt32, Bool, Int32
 
 class TestNode(Node):
     def __init__(self):
@@ -29,7 +29,7 @@ class TestNode(Node):
         )
 
         self.sub1 = self.create_subscription(
-            Bool,
+            Int32,
             '/aruco_id',
             self.listener_callback_fnc4,
             10
@@ -44,7 +44,7 @@ class TestNode(Node):
     def listener_callback_fnc3(self, msg: UInt32):
         self.get_logger().info(f'angle: {msg.data}')
 
-    def listener_callback_fnc4(self, msg: Bool):
+    def listener_callback_fnc4(self, msg: Int32):
         self.get_logger().info(f'ID: {msg.data}')
 
 

@@ -3,7 +3,7 @@ import rclpy
 from rclpy.node import Node
 from .PictureProcessing import PictureProcessing
 
-from std_msgs.msg import UInt32, Bool
+from std_msgs.msg import UInt32, Bool, Int32
 
 class CameraNode(Node):
     def __init__(self):
@@ -28,7 +28,7 @@ class CameraNode(Node):
         )
 
         self.publisher_id = self.create_publisher(
-            UInt32,
+            Int32,
             '/aruco_id',
             10
         )
@@ -39,22 +39,21 @@ class CameraNode(Node):
         aruco_dist = UInt32()
         aruco_detected = Bool()
         aruco_angle = UInt32()
-        aruco_id = UInt32()
+        aruco_id = Int32()
 
         functioncall = PictureProcessing()
         image_processed = functioncall.process_frame()
-        list(image_processed)
 
         # 'random' durch funktionscalls ersetzen
-        aruco_dist.data = image_processed[2]
-        aruco_detected.data = image_processed[0]
-        aruco_angle = image_processed[3]
-        aruco_id = image_processed[1]
+        aruco_dist.data = int(image_processed[2])
+        aruco_detected.data = bool(image_processed[0])
+        aruco_angle.data = int(image_processed[3])
+        aruco_id.data = int(image_processed[1])
         
         self.publisher_dist.publish(aruco_dist)
         self.publisher_detected.publish(aruco_detected)
-        #self.publisher_angle.publish(aruco_angle)
-        #self.publisher_id.publish(aruco_id)
+        self.publisher_angle.publish(aruco_angle)
+        self.publisher_id.publish(aruco_id)
 
 
 def main():
