@@ -21,8 +21,8 @@ class PictureProcessing():
         
         if not ret:
             has_marker = False
-            # Return Variable mit: marker erkannt, marker_id, distanz, winkel
-            return_val = [has_marker, marker_id, distance, angle]
+          
+            return_val = [marker_id, distance, angle]
             return return_val
         
         if self.aruco_detector.detect_markers(frame):
@@ -40,8 +40,8 @@ class PictureProcessing():
             distance = 0.0
             angle = 0.0
 
-        # Return Variable mit: marker erkannt, marker_id, distanz, winkel
-        return_val = [has_marker, marker_id, distance, angle]
+   
+        return_val = [marker_id, distance, angle]
         
         return return_val
 

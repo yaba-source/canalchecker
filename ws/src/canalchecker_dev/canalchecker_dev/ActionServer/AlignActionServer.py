@@ -4,6 +4,8 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.action import ActionServer, GoalResponse
 from rclpy.node import Node
 from canalchecker_interface.action import Align
+from canalchecker_dev.logik.AlignLogic import AlignStateMachine
+from canalchecker_interface.msg import ArucoDetection
 import math
 import time
 import threading
@@ -31,9 +33,12 @@ class AlignActionServer(Node):
         
         self._goal_lock = threading.Lock()
         self._goal_handle = None
-        
         self._last_yaw = None
-
+        self._aruco_id = None
+        self._aruco_distance = 0.0
+        self._aruco_angle = 0.0
+        self._aruco_lock = threading.Lock()
+        
         # Publisher für cmd_vel
         self.publisher = self.create_publisher(
             Twist,
@@ -48,9 +53,12 @@ class AlignActionServer(Node):
             self.listener_callback_fnc,
             10
         )
-
-        self.sub_
-
+        # Subscriber für Aruco Detection
+        self.sub_aruco = self.create_subscription(
+            ArucoDetection,
+            '/aruco_detections',
+            self.aruco_callback_fnc,
+            10)
         # Action Server
         self.action_server = ActionServer(
             self,
@@ -73,6 +81,13 @@ class AlignActionServer(Node):
         
         self.get_logger().info(f'Goal attributes: {dir(goal_request)}')
         return GoalResponse.ACCEPT
+    def aruco_callback_fnc(self, msg: ArucoDetection):
+        """ CustomMessage mit Aruco Detection Daten """
+        with self._aruco_lock:
+            self._aruco_id = msg.id
+            self._aruco_distance = msg.distance
+            self._aruco_angle = msg.angle
+     
 
     def execute_callback_fnc(self, goal_handle):
         self.get_logger().info('Executing alignment')
@@ -83,30 +98,48 @@ class AlignActionServer(Node):
             goal_handle.abort()
             return Align.Result(reached=False)
 
-   
-        for i in range(10):
             
-            if not goal_handle.is_active:
-                break
+        state_machine = AlignStateMachine(logger=self.get_logger())
+        state_machine.id_to_turn = goal_handle.request.marker_id 
+        state_machine.set_p_gains(kp_angular=1.5, max_angular_speed=0.5)
+
+        rate = self.create_rate(20)  # 20 Hz
+        timeout = 30.0  # 30 Sekunden Timeout
+        start_time = time.time()
+
+        while rclpy.ok() and not state_machine.align_done:
+            if time.time() - start_time > timeout:
+                self.get_logger().error('Alignment timeout')
+                goal_handle.abort()
+                self._stop_robot()
+                return Align.Result(reached=False)
             
-        
-            feedback = Align.Feedback()
-            feedback.angle_to_goal = float(10 - i)
-            goal_handle.publish_feedback(feedback)
+            if goal_handle.is_cancel_requested:
+                goal_handle.canceled()
+                self._stop_robot()
+                self.get_logger().info('Goal cancelled')
+                return Align.Result(reached=False)
             
+            with self._aruco_lock:
+                state_machine.id = self._aruco_id
+                state_machine.distance = self._aruco_distance
+                state_machine.angle = self._aruco_angle
+
+            state_machine.execute()
             cmd = Twist()
-            cmd.angular.z = 0.1
+            cmd.linear.x = state_machine.linear_speed
+            cmd.angular.z = state_machine.angular_speed
             self.publisher.publish(cmd)
-            
-            time.sleep(0.5)
-        
-        
-        stop_cmd = Twist()
-        stop_cmd.angular.z = 0.0
-        self.publisher.publish(stop_cmd)
-        
-        
-        if goal_handle.is_active:
+
+            feedback = Align.Feedback()
+            feedback.angle_to_goal = state_machine.angle
+            goal_handle.publish_feedback(feedback)
+
+            rate.sleep()
+
+        self._stop_robot()
+
+        if state_machine.align_done:
             goal_handle.succeed()
             result = Align.Result()
             result.reached = True
@@ -116,6 +149,14 @@ class AlignActionServer(Node):
             result = Align.Result()
             result.reached = False
             return result
+          
+        
+
+    def _stop_robot(self):
+        stop_cmd = Twist()
+        stop_cmd.linear.x = 0.0
+        stop_cmd.angular.z = 0.0
+        self.publisher.publish(stop_cmd)    
 
 
 def main():
