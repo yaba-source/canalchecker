@@ -1,0 +1,3 @@
+float32 aruco_distance
+float32 aruco_angle
+int32 aruco_id

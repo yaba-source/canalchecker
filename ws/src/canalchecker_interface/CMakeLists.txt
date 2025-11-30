@@ -29,8 +29,13 @@ set(action_files
   "action/Follow.action"
 )
 
+set(msg_files
+  "msg/ArucoDetection.msg"
+)
+
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${action_files}
+  ${msg_files}
   DEPENDENCIES geometry_msgs
 )
 

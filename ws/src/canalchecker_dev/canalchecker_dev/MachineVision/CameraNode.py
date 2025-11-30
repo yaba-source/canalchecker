@@ -2,6 +2,7 @@ import random # Für finalen code unnötig (entfernen)
 import rclpy
 from rclpy.node import Node
 from .PictureProcessing import PictureProcessing
+from canalchecker_interface.msg import ArucoDetection
 
 from std_msgs.msg import UInt32, Bool, Int32
 
@@ -10,50 +11,25 @@ class CameraNode(Node):
         super().__init__('camera_node')
 
         self.publisher_dist = self.create_publisher(
-            UInt32,
-            '/aruco_distance',
-            10
-        )
-
-        self.publisher_detected = self.create_publisher(
-            Bool,
-            '/aruco_detected',
-            10
-        )
-
-        self.publisher_angle = self.create_publisher(
-            UInt32,
-            '/aruco_angle',
-            10
-        )
-
-        self.publisher_id = self.create_publisher(
-            Int32,
-            '/aruco_id',
+            ArucoDetection,
+            '/aruco_detections',
             10
         )
 
         self.timer = self.create_timer(0.1, self.timer_callback_fnc)
 
     def timer_callback_fnc(self):
-        aruco_dist = UInt32()
-        aruco_detected = Bool()
-        aruco_angle = UInt32()
-        aruco_id = Int32()
+        aruco_data = ArucoDetection()
 
         functioncall = PictureProcessing()
         image_processed = functioncall.process_frame()
 
         # 'random' durch funktionscalls ersetzen
-        aruco_dist.data = int(image_processed[2])
-        aruco_detected.data = bool(image_processed[0])
-        aruco_angle.data = int(image_processed[3])
-        aruco_id.data = int(image_processed[1])
+        aruco_data.aruco_distance = float(image_processed[1])
+        aruco_data.aruco_angle = float(image_processed[2])
+        aruco_data.aruco_id = int(image_processed[0])
         
-        self.publisher_dist.publish(aruco_dist)
-        self.publisher_detected.publish(aruco_detected)
-        self.publisher_angle.publish(aruco_angle)
-        self.publisher_id.publish(aruco_id)
+        self.publisher_dist.publish(aruco_data)
 
 
 def main():
