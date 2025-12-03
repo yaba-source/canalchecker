@@ -4,7 +4,7 @@ import math
 
 class ArucoMarkerDetector:
     def __init__(self):
-        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_100)
         self.aruco_params = cv2.aruco.DetectorParameters()
         self.marker_size = 0.175  
         
@@ -80,7 +80,7 @@ class ArucoMarkerDetector:
                 image_points,
                 self.camera_matrix,
                 self.dist_coeffs,
-                flags=cv2.SOLVEPNP_IPPE_SQUARE ) 
+                flags=cv2.SOLVEPNP_IPPE_SQUARE ) # because markers are planar
             
             if success:
                 self.rvecs.append(rvec)
