@@ -4,27 +4,33 @@ import math
 
 class ArucoMarkerDetector:
     def __init__(self):
-        
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
         self.aruco_params = cv2.aruco.DetectorParameters()
-        self.marker_size = 0.175
+        self.marker_size = 0.175  
         
         self.camera_matrix = np.array([
-        [666.08925042,   0.0,         309.4006048 ],
-        [0.0,            665.95103659,189.14685266],
-        [0.0,              0.0,         1.0       ]
+            [666.08925042,   0.0,         309.4006048 ],
+            [0.0,            665.95103659,189.14685266],
+            [0.0,              0.0,         1.0       ]
         ], dtype=np.float32)
-
+        
         self.dist_coeffs = np.array([
             2.56899643e-01,
             -1.30223934e+00,
             -1.26857755e-02,
             -1.44284369e-03,
             2.21341484e+00
-            ], dtype=np.float32)
-            
-     
-
+        ], dtype=np.float32)
+        
+        
+        half_size = self.marker_size / 2.0
+        self.obj_points = np.array([
+            [-half_size,  half_size, 0],  
+            [ half_size,  half_size, 0], 
+            [ half_size, -half_size, 0],  
+            [-half_size, -half_size, 0]   
+        ], dtype=np.float32)
+        
         self.frame = None
         self.gray = None
         self.corners = None
@@ -34,47 +40,66 @@ class ArucoMarkerDetector:
         self.tvecs = None
         self.distances = None
         self.angles = None
-
-
+    
     def detect_markers(self, frame):
-        
         self.frame = frame
         self.gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
+        
         detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
         self.corners, self.ids, self.rejected = detector.detectMarkers(self.gray)
         
         return self.ids is not None and len(self.corners) > 0
-
-
+    
     def estimate_pose(self):
+        """
+        SolvePnP to estimate the pose of detected Aruco markers.
+
         
+        :param self: Description
+        :return angle to marker in degrees and distance to marker in meters
+
+        """
+
         if self.ids is None or len(self.corners) == 0:
             return None, None
         
-        self.rvecs, self.tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
-            self.corners, self.marker_size, self.camera_matrix, self.dist_coeffs)
-        
+        self.rvecs = []
+        self.tvecs = []
         self.distances = []
         self.angles = []
         
         for i, marker_id in enumerate(self.ids):
             mid = marker_id[0]
-            distance = self.tvecs[i][0][2]
-            x_offset = self.tvecs[i][0][0]
-            y_offset = self.tvecs[i][0][1]
-            angle_to_marker = math.degrees(math.atan2(y_offset, x_offset))
             
-            self.distances.append(distance)
-            self.angles.append(angle_to_marker)
+           
+            image_points = self.corners[i][0].astype(np.float32)
             
-            print(f"Marker ID: {mid}")
-            print(f"Distance to Marker: {distance} m")
-            print(f"Angle to Marker: {angle_to_marker} degrees\n")
+
+            success, rvec, tvec = cv2.solvePnP(
+                self.obj_points,
+                image_points,
+                self.camera_matrix,
+                self.dist_coeffs,
+                flags=cv2.SOLVEPNP_IPPE_SQUARE ) 
+            
+            if success:
+                self.rvecs.append(rvec)
+                self.tvecs.append(tvec)
+                
+               
+                distance = tvec[2][0]  
+                x_offset = tvec[0][0]  
+                y_offset = tvec[1][0]
+                
+                angle_to_marker = math.degrees(math.atan2(x_offset, distance))
+                
+                self.distances.append(distance)
+                self.angles.append(angle_to_marker)
+                
+                print(f"Marker ID: {mid}")
+                print(f"Distance to Marker: {distance:.3f} m")
+                print(f"X Offset: {x_offset:.3f} m")
+                print(f"Y Offset: {y_offset:.3f} m")
+                print(f"Angle to Marker: {angle_to_marker:.2f} degrees\n")
         
         return self.distances, self.angles
-    
-
-    
-
-
-         
