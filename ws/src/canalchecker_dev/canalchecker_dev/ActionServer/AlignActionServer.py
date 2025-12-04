@@ -135,7 +135,7 @@ class AlignActionServer(Node):
             feedback.angle_to_goal = state_machine.angle
             goal_handle.publish_feedback(feedback)
 
-            rate.sleep()
+            rate.sleep() #warte bis zur nächsten Iteration um Roboternicht ruckeln zu lassen
 
         self._stop_robot()
 
