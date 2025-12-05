@@ -34,7 +34,7 @@ class AlignActionServer(Node):
         self._goal_lock = threading.Lock()
         self._goal_handle = None
         self._last_yaw = None
-        self._aruco_id = None
+        self._aruco_id = -1
         self._aruco_distance = 0.0
         self._aruco_angle = 0.0
         self._aruco_lock = threading.Lock()
@@ -76,17 +76,18 @@ class AlignActionServer(Node):
         
 
     def goal_callback(self, goal_request):
-        """Callback wenn Goal ankommt - OHNE auf Attribute zuzugreifen"""
+        """Callback wenn Goal ankommt """
         self.get_logger().info('Goal received')
         
         self.get_logger().info(f'Goal attributes: {dir(goal_request)}')
         return GoalResponse.ACCEPT
     def aruco_callback_fnc(self, msg: ArucoDetection):
         """ CustomMessage mit Aruco Detection Daten """
+        self.get_logger().info(f"ArUco empfangen: ID={msg.aruco_id}, dist={msg.aruco_distance}, angle={msg.aruco_angle}")
         with self._aruco_lock:
-            self._aruco_id = msg.id
-            self._aruco_distance = msg.distance
-            self._aruco_angle = msg.angle
+            self._aruco_id = msg.aruco_id
+            self._aruco_distance = msg.aruco_distance
+            self._aruco_angle = msg.aruco_angle
      
 
     def execute_callback_fnc(self, goal_handle):
@@ -100,11 +101,11 @@ class AlignActionServer(Node):
 
             
         state_machine = AlignStateMachine(logger=self.get_logger())
-        state_machine.id_to_turn = goal_handle.request.marker_id 
-        state_machine.set_p_gains(kp_angular=1.5, max_angular_speed=0.5)
+        state_machine.id_to_turn = self._aruco_id
+        state_machine.setpgain(kp_angular=0.3, max_angular_speed=0.08)
 
-        rate = self.create_rate(20)  # 20 Hz
-        timeout = 30.0  # 30 Sekunden Timeout
+        rate = self.create_rate(30)  
+        timeout = 30.0  
         start_time = time.time()
 
         while rclpy.ok() and not state_machine.align_done:
@@ -135,7 +136,7 @@ class AlignActionServer(Node):
             feedback.angle_to_goal = state_machine.angle
             goal_handle.publish_feedback(feedback)
 
-            rate.sleep() #warte bis zur nächsten Iteration um Roboternicht ruckeln zu lassen
+            rate.sleep() #warte bis zur nächsten Iteration um Roboternicht ruckeln zu lassen wegen twist comand
 
         self._stop_robot()
 

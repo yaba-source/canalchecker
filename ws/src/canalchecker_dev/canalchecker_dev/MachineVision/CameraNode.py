@@ -16,7 +16,7 @@ class CameraNode(Node):
             10
         )
 
-        self.timer = self.create_timer(0.1, self.timer_callback_fnc)
+        self.timer = self.create_timer(1/30, self.timer_callback_fnc)
 
     def timer_callback_fnc(self):
         aruco_data = ArucoDetection()
