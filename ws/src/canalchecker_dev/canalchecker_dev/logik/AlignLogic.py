@@ -18,7 +18,9 @@ class AlignStateMachine:
         self.linear_speed = 0.0   
         self.angular_speed = 0.0
         self.marker_lost_counter = 0
-    
+        self.distance_farMarker = 1.0
+        
+            
     def setpgain(self, kp_angular, max_angular_speed):
         """Setze Regelungsparameter"""
         self.kp_angular = kp_angular
@@ -26,7 +28,7 @@ class AlignStateMachine:
 
     def pcontroller(self, error_rad):
         """P-Regler mit progressiver Geschwindigkeit"""
-        factor = abs(error_rad) * 10
+        factor = abs(error_rad) * 5
         control = self.kp_angular * error_rad * factor
         return control
     
@@ -40,7 +42,7 @@ class AlignStateMachine:
                 self.linear_speed = 0.0
                 self.marker_lost_counter = 0
                 
-                if self.id == 0:  
+                if self.id == self.id_to_turn and self.distance < self.distance_farMarker:  
                     self.state = 20
                     if self.logger:
                         self.logger.info(f"Marker ID 0 gefunden bei {self.distance:.2f}m, starte Alignment")
@@ -51,7 +53,9 @@ class AlignStateMachine:
                 self.linear_speed = 0.0
                 self.angular_speed = self.align_angular_speed
                 
-                if self.id == 0: 
+                if self.id == self.id_to_turn: 
+                    if self.logger:
+                        self.logger.info(f"AlignStateMachine: Aligning to marker ID {self.id} at distance {self.distance:.2f}m and angle {self.angle:.2f}°")
                     angle_rad = math.radians(self.angle)  
                     self.angular_speed = self.pcontroller(angle_rad)
                     
