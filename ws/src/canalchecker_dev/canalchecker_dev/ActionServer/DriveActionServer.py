@@ -57,12 +57,13 @@ class DriveActionServer(Node):
         return GoalResponse.ACCEPT
 
     def aruco_callback_fnc(self, msg: ArucoDetection):
-        self.aruco_dist = msg.dist
-        self.aruco_angle = msg.angle
-        self.aruco_id = msg.id
+        self.aruco_dist = msg.aruco_distance
+        self.aruco_angle = msg.aruco_angle
+        self.aruco_id = msg.aruco_id
 
     def listener_callback_fnc(self, msg: Odometry):
-        self.get_logger().info(f"Pos X: {msg.pose.pose.position.x:.3f} " f"Pos Y: {msg.pose.pose.position.y:.3f}")        
+       # self.get_logger().info(f"Pos X: {msg.pose.pose.position.x:.3f} " f"Pos Y: {msg.pose.pose.position.y:.3f}")     
+       pass   
 
     def execute_callback_fnc(self, goal_handle): 
         self.get_logger().info('Goal Received! Driving.')
@@ -77,11 +78,15 @@ class DriveActionServer(Node):
                 # Wenn kein Aruco Marker erkannt wird, fahre nicht
                 self.get_logger().warning('No Aruco found. Stopping drive.')
                 self.stop_robot()
+                state.state=3
             else:
                 self.get_logger().info(f'\nAruco Marker found {self.aruco_id}.\nDistance: {self.aruco_dist}\nAngle: {self.aruco_angle}')
                 state.id = self.aruco_id
                 state.angle = self.aruco_angle
                 state.distance = self.aruco_dist
+                cmd.linear.x = state.max_linear_speed
+                state.state=1
+
             
             if goal_handle.is_cancel_requested:
                 goal_handle.canceled()
@@ -91,10 +96,11 @@ class DriveActionServer(Node):
 
             state.execute()
             if self.aruco_id > -1:
-                cmd.angular.z = state.angular_cmd
+                cmd.angular.z = float (state.angular_cmd )
             else:
-                cmd.angular.z = 0
-            cmd.linear.x = state.max_linear_speed
+                cmd.angular.z = 0.0
+                self.stop_robot()
+                
             self.publisher.publish(cmd)
 
             feedback = Drive.Feedback()
@@ -116,8 +122,8 @@ class DriveActionServer(Node):
       
     def stop_robot(self):
         cmd = Twist()
-        cmd.linear.x = 0
-        cmd.angular.z = 0
+        cmd.linear.x = 0.0
+        cmd.angular.z = 0.0
         self.publisher.publish(cmd)
 
 

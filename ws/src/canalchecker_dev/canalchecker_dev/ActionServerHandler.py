@@ -76,29 +76,63 @@ class ActionServerHandler(Node):
         self._get_result_promise.add_done_callback(self.get_result_callback)
 
     def get_result_callback(self, promise):
-        """Callback wenn Server fertig ist"""
+        """Callback wenn Server fertig ist - prüft Status und Result"""
+        result_response = promise.result()
+        result = result_response.result
+        status = result_response.status
+        
+        # Status Codes:
+        # 4 = SUCCEEDED, 5 = CANCELED, 6 = ABORTED
+        if status != 4:  # 4 = SUCCEEDED
+            self.get_logger().error(
+                f'{self.current_action} Server FEHLGESCHLAGEN (status={status})'
+            )
+            self.current_action = None
+            return
+        
+        # Action war erfolgreich - prüfe Result
         match self.current_action:
             case 'align':
-                self.state_machine.set_align_done()
-                self.get_logger().info('Align Server: fertig')
+                if hasattr(result, 'reached') and result.reached:
+                    self.state_machine.set_align_done()
+                    self.get_logger().info('✓ Align Server ERFOLGREICH')
+                else:
+                    self.get_logger().warn(
+                        'Align Server beendet aber reached=False'
+                    )
             
             case 'drive':
-                self.state_machine.set_drive_done()
-                self.get_logger().info('Drive Server: fertig')
+                if hasattr(result, 'reached') and result.reached:
+                    self.state_machine.set_drive_done()
+                    self.get_logger().info('✓ Drive Server ERFOLGREICH')
+                else:
+                    self.get_logger().warn(
+                        'Drive Server beendet aber reached=False'
+                    )
             
             case 'follow':
-                self.state_machine.set_follow_done()
-                self.get_logger().info('Follow Server: fertig')
+                if hasattr(result, 'reached') and result.reached:
+                    self.state_machine.set_follow_done()
+                    self.get_logger().info('✓ Follow Server ERFOLGREICH')
+                else:
+                    self.get_logger().warn(
+                        'Follow Server beendet aber reached=False'
+                    )
         
         self.current_action = None
 
     def feedback_callback(self, feedback_msg):
-        """Callback für Feedback während der Ausführung"""
+        """Callback für Feedback während der Ausführung - NUR zur Anzeige"""
         feedback = feedback_msg.feedback
         
         match self.current_action:
             case 'align':
-                self.get_logger().info(f'Align Feedback: {feedback}')
+                if hasattr(feedback, 'angle_to_goal'):
+                    self.get_logger().info(
+                        f'Align Feedback: angle={feedback.angle_to_goal:.2f}°'
+                    )
+                else:
+                    self.get_logger().info(f'Align Feedback: {feedback}')
             
             case 'drive':
                 self.get_logger().info(f'Drive Feedback: {feedback}')

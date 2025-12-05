@@ -16,7 +16,6 @@ from geometry_msgs.msg import Twist
 
 def quaternion_to_yaw(q):
     """
-
     def 
     q: ein Objekt mit x, y, z, w 
     Rückgabe: yaw in Radiant
@@ -98,12 +97,8 @@ class AlignActionServer(Node):
             self.get_logger().warning('No odometry data received yet. Cannot align.')
             goal_handle.abort()
             return Align.Result(reached=False)
-
             
         state_machine = AlignStateMachine(logger=self.get_logger())
-        state_machine.id_to_turn = self._aruco_id
-        state_machine.setpgain(kp_angular=0.3, max_angular_speed=0.08)
-
         rate = self.create_rate(30)  
         timeout = 30.0  
         start_time = time.time()
@@ -122,9 +117,9 @@ class AlignActionServer(Node):
                 return Align.Result(reached=False)
             
             with self._aruco_lock:
-                state_machine.id = self._aruco_id
-                state_machine.distance = self._aruco_distance
-                state_machine.angle = self._aruco_angle
+                    state_machine.id = self._aruco_id
+                    state_machine.distance = self._aruco_distance
+                    state_machine.angle = self._aruco_angle
 
             state_machine.execute()
             cmd = Twist()

@@ -13,15 +13,18 @@ class CameraNode(Node):
         self.publisher_dist = self.create_publisher(
             ArucoDetection,
             '/aruco_detections',
-            100
+            10
         )
-        self.picture_processor = PictureProcessing()
 
-        self.timer = self.create_timer(1/60, self.timer_callback_fnc)
+        self.timer = self.create_timer(1/30, self.timer_callback_fnc)
 
     def timer_callback_fnc(self):
         aruco_data = ArucoDetection()
-        image_processed = self.picture_processor.process_frame()  
+
+        functioncall = PictureProcessing()
+        image_processed = functioncall.process_frame()
+
+     
         aruco_data.aruco_distance = float(image_processed[1])
         aruco_data.aruco_angle = float(image_processed[2])
         aruco_data.aruco_id = int(image_processed[0])
