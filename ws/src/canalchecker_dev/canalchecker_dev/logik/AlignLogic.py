@@ -18,20 +18,17 @@ class AlignStateMachine:
         self.angular_speed = 0.0
         self.marker_lost_counter = 0
         self.distance_far_marker= 0.5
+        self.max_speed = 0.2
     
-    def setpgain(self, kp_angular, max_angular_speed):
-        """Setze Regelungsparameter"""
-        self.kp_angular = kp_angular
-        self.align_angular_speed = max_angular_speed  
-
+    
     def pcontroller(self, error_rad):
         """P-Regler mit progressiver Geschwindigkeit"""
         control = self.kp_angular * error_rad 
-        max_speed = self.align_angular_speed
-        if control > max_speed:
-            control = max_speed
-        elif control < -max_speed:
-            control = -max_speed
+        self.max_speed = self.align_angular_speed
+        if control > self.max_speed:
+            control = self.max_speed
+        elif control < -self.max_speed:
+            control = -self.max_speed
 
         return -control
     

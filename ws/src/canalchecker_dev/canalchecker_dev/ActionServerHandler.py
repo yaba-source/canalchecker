@@ -2,44 +2,194 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from canalchecker_interface.action import Align, Follow, Drive
-from .logik.HandlerLogic import StateMachine
+from canalchecker_interface.msg import ArucoDetection
+from std_msgs.msg import Float32
+import threading
 
 class ActionServerHandler(Node):
-    def __init__(self):
+    def __init__(self, target_distance=50.0):
         super().__init__('actionserverhandler')
-        self.state_machine = StateMachine(logger=self.get_logger())
         
+        
+        self.target_distance = target_distance
+        self._target_distance_lock = threading.Lock()
+        self.get_logger().info(f'Ziel-Distanz zum Roboter: {self.target_distance} cm')
+        
+        
+        self._max_speed = 0.1  # Standardwert
+        self._max_speed_lock = threading.Lock()
+        
+        # Aruco Detection für Trigger
+        self._aruco_id = -1
+        self._aruco_lock = threading.Lock()
+        self._target_aruco_id = 69  
+        
+        # State für normale Ablaufsteuerung
+        self._current_state = 0  # 0=Idle, 10=Align, 20=Drive, 30=Follow
+        self._follow_triggered = False
+        
+        # Topic für Ziel-Distanz
+        self.sub_target_distance = self.create_subscription(
+            Float32,
+            '/target_distance',
+            self.target_distance_callback,
+            10
+        )
+        
+        # Topic für Geschwindigkeitsvorgabe
+        self.sub_max_speed = self.create_subscription(
+            Float32,
+            '/max_speed',
+            self.max_speed_callback,
+            10
+        )
+        
+        # ArUco Subscription für Trigger
+        self.sub_aruco = self.create_subscription(
+            ArucoDetection,
+            '/aruco_detections',
+            self.aruco_callback,
+            10
+        )
+        
+        # Action Clients
         self.actionserver_align = ActionClient(self, Align, 'align')
         self.actionserver_drive = ActionClient(self, Drive, 'drive')
         self.actionserver_follow = ActionClient(self, Follow, 'follow')
         
         self.timer = self.create_timer(0.1, self.state_machine_loop)
-        self.current_action = None 
-        self.get_logger().info('Handler started')
+        self.current_action = None
+        self._goal_handle = None
+        
+        self.get_logger().info('Handler started ')
+
+    def aruco_callback(self, msg: ArucoDetection):
+        """Callback für ArUco Detection - prüft auf Trigger ID 69"""
+        with self._aruco_lock:
+            self._aruco_id = msg.aruco_id
+        
+        
+        if msg.aruco_id == self._target_aruco_id and not self._follow_triggered:
+            self.get_logger().warn(
+                f"ARUCO ID {self._target_aruco_id} Wechsle zu Follow-Modus!"
+            )
+            self._follow_triggered = True
+            self._trigger_follow_mode()
+        else:
+            self.get_logger().info(f"ArUco empfangen: ID={msg.aruco_id}")
+
+    def _trigger_follow_mode(self):
+        """Bricht aktuelle Action ab und startet Follow-Modus"""
+        
+        if self.current_action is not None:
+            self.get_logger().warn(
+                f"Breche {self.current_action} Action ab für Follow-Modus"
+            )
+            self._cancel_current_action()
+    
+        self._current_state = 30
+        
+        # Direkt Follow-Goal senden
+        self.get_logger().info("Starte Follow-Modus SOFORT")
+        goal_msg = Follow.Goal()
+        goal_msg.target_distance = self.get_target_distance()
+        goal_msg.max_speed = self.get_max_speed()
+        self.send_goal('follow', goal_msg)
+
+    def _cancel_current_action(self):
+        """Versucht die aktuelle Action abzubrechen"""
+        if self._goal_handle is not None:
+            try:
+                self._goal_handle.cancel_goal_async()
+                self.get_logger().info("Cancel Request gesendet")
+            except Exception as e:
+                self.get_logger().error(f"Fehler beim Abbrechen: {e}")
+        
+        self.current_action = None
+
+    def max_speed_callback(self, msg: Float32):
+        """Callback für Geschwindigkeitsvorgabe - begrenzt auf 0.0 bis 0.2 m/s"""
+        speed = msg.data
+        
+        
+        if speed < 0.0:
+            speed = 0.0
+            self.get_logger().warn(f"Geschwindigkeit < 0! Setze auf 0.0 m/s")
+        elif speed > 0.2:
+            speed = 0.2
+            self.get_logger().warn(f"Geschwindigkeit > 0.2! Begrenze auf 0.2 m/s")
+        
+        with self._max_speed_lock:
+            self._max_speed = speed
+        
+        self.get_logger().info(f"Neue Max-Geschwindigkeit: {speed:.3f} m/s")
+
+    def target_distance_callback(self, msg: Float32):
+        """Callback für Ziel-Distanz in cm"""
+        distance = msg.data
+   
+        if distance < 20.0:
+            distance = 10.0
+            self.get_logger().warn(f"Distanz < 10cm! Setze auf 10 cm")
+        elif distance > 100.0:
+            distance = 100.0
+            self.get_logger().warn(f"Distanz > 500cm! Begrenze auf 500 cm")
+        
+        with self._target_distance_lock:
+            self.target_distance = distance
+        
+        self.get_logger().info(f"Neue Ziel-Distanz: {distance:.1f} cm")
+
+    def get_max_speed(self):
+        """Gibt aktuelle maximale Geschwindigkeit zurück"""
+        with self._max_speed_lock:
+            return self._max_speed
+
+    def get_target_distance(self):
+        """Gibt aktuelle Ziel-Distanz zurück"""
+        with self._target_distance_lock:
+            return self.target_distance
+
+    def get_aruco_id(self):
+        """Gibt aktuelle Aruco ID zurück"""
+        with self._aruco_lock:
+            return self._aruco_id
 
     def state_machine_loop(self):
-        """Timer Callback - führt State Machine aus"""
-        if self.current_action is None:
-            self.state_machine.execute()
-            self.send_goal_for_state()
+        """Timer Callback - Ablaufsteuerung"""
+        # Wenn Follow getriggert wurde, keine weitere State Machine
+        if self._follow_triggered:
+            return
+        
+        # Nur neue Actions starten wenn keine aktiv ist
+        if self.current_action is not None:
+            return
+        
+      
+        if self._current_state == 0:  
+            self.get_logger().info("State: IDLE -> Starte Align")
+            self._current_state = 10
+            self.send_align_goal()
 
-    def send_goal_for_state(self):
-        """Sendet Goal basierend auf aktuellem State"""
-        match self.state_machine.state:
-            case 10:
-                self.get_logger().info("Starte Align Server")
-                goal_msg = Align.Goal()
-                self.send_goal('align', goal_msg)
-            
-            case 20:
-                self.get_logger().info("Sende Drive Goal")
-                goal_msg = Drive.Goal()
-                self.send_goal('drive', goal_msg)
-            
-            case 30:
-                self.get_logger().info("Sende Follow Goal")
-                goal_msg = Follow.Goal()
-                self.send_goal('follow', goal_msg)
+    def send_align_goal(self):
+        """Startet Align Action"""
+        self.get_logger().info("Sende Align Goal")
+        goal_msg = Align.Goal()
+        self.send_goal('align', goal_msg)
+
+    def send_drive_goal(self):
+        """Startet Drive Action"""
+        self.get_logger().info("Sende Drive Goal")
+        goal_msg = Drive.Goal()
+        self.send_goal('drive', goal_msg)
+
+    def send_follow_goal(self):
+        """Startet Follow Action"""
+        self.get_logger().info("Sende Follow Goal")
+        goal_msg = Follow.Goal()
+        goal_msg.target_distance = self.get_target_distance()
+        goal_msg.max_speed = self.get_max_speed()
+        self.send_goal('follow', goal_msg)
 
     def send_goal(self, action_type, goal_msg):
         """Sendet Goal an Action Server"""
@@ -72,6 +222,7 @@ class ActionServerHandler(Node):
             return
         
         self.get_logger().info('Goal accepted :)')
+        self._goal_handle = goal_handler  # Speichere Goal Handle für Cancel
         self._get_result_promise = goal_handler.get_result_async()
         self._get_result_promise.add_done_callback(self.get_result_callback)
 
@@ -81,8 +232,12 @@ class ActionServerHandler(Node):
         result = result_response.result
         status = result_response.status
         
-        # Status Codes:
-        # 4 = SUCCEEDED, 5 = CANCELED, 6 = ABORTED
+        # Status Codes: 4 = SUCCEEDED, 5 = CANCELED, 6 = ABORTED
+        if status == 5:  # CANCELED
+            self.get_logger().warn(f'{self.current_action} wurde abgebrochen')
+            self.current_action = None
+            return
+        
         if status != 4:  # 4 = SUCCEEDED
             self.get_logger().error(
                 f'{self.current_action} Server FEHLGESCHLAGEN (status={status})'
@@ -90,49 +245,42 @@ class ActionServerHandler(Node):
             self.current_action = None
             return
         
-        # Action war erfolgreich - prüfe Result
+        # Action war erfolgreich - nächster State
         match self.current_action:
             case 'align':
-                if hasattr(result, 'reached') and result.reached:
-                    self.state_machine.set_align_done()
-                    self.get_logger().info('✓ Align Server ERFOLGREICH')
+                if result.reached:
+                    self.get_logger().info('Align Server ERFOLGREICH')
+                    self._current_state = 20  
+                    self.send_drive_goal()
                 else:
-                    self.get_logger().warn(
-                        'Align Server beendet aber reached=False'
-                    )
+                    self.get_logger().warn('Align beendet aber reached=False')
             
             case 'drive':
-                if hasattr(result, 'reached') and result.reached:
-                    self.state_machine.set_drive_done()
-                    self.get_logger().info('✓ Drive Server ERFOLGREICH')
+                if result.reached:
+                    self.get_logger().info('Drive Server ERFOLGREICH')
+                    self._current_state=10
                 else:
-                    self.get_logger().warn(
-                        'Drive Server beendet aber reached=False'
-                    )
+                    self.get_logger().warn('Drive beendet aber reached=False')
             
             case 'follow':
-                if hasattr(result, 'reached') and result.reached:
-                    self.state_machine.set_follow_done()
-                    self.get_logger().info('✓ Follow Server ERFOLGREICH')
+                if result.reached:
+                    self.get_logger().info('Follow Server ERFOLGREICH - FERTIG!')
+                    self._current_state=10
                 else:
-                    self.get_logger().warn(
-                        'Follow Server beendet aber reached=False'
-                    )
+                    self.get_logger().warn('Follow beendet aber reached=False')
         
         self.current_action = None
 
     def feedback_callback(self, feedback_msg):
-        """Callback für Feedback während der Ausführung - NUR zur Anzeige"""
+        """Callback für Feedback während der Ausführung"""
         feedback = feedback_msg.feedback
         
         match self.current_action:
             case 'align':
-                if hasattr(feedback, 'angle_to_goal'):
+                if feedback.angle_to_goal:
                     self.get_logger().info(
                         f'Align Feedback: angle={feedback.angle_to_goal:.2f}°'
                     )
-                else:
-                    self.get_logger().info(f'Align Feedback: {feedback}')
             
             case 'drive':
                 self.get_logger().info(f'Drive Feedback: {feedback}')
@@ -143,7 +291,16 @@ class ActionServerHandler(Node):
 def main(args=None):
     rclpy.init(args=args)
     try:
-        handler = ActionServerHandler()
+        distance_input = input("Geben Sie den Soll-Abstand zum Roboter ein (in cm): ")
+        try:
+            target_distance = float(distance_input)
+            print(f"Eingegebener Abstand: {target_distance} cm")
+        except ValueError:
+            print("Ungültige Eingabe! Verwende Standard: 50 cm")
+            target_distance = 50.0
+        print("=" * 50)
+        
+        handler = ActionServerHandler(target_distance=target_distance)
         handler.get_logger().info('Handler started - press Ctrl+C to exit')
         rclpy.spin(handler)
     

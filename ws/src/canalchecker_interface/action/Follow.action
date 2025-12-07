@@ -1,8 +1,9 @@
 # Request
-geometry_msgs/Pose2D pose
+float32 target_distance  
+float32 max_speed        
 ---
 # Result
 bool reached
 ---
 # Feedback
-float32 dist_to_robot
+float32 current_distance

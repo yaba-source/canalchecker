@@ -6,11 +6,10 @@ from rclpy.node import Node
 from canalchecker_interface.action import Align
 from canalchecker_dev.logik.AlignLogic import AlignStateMachine
 from canalchecker_interface.msg import ArucoDetection
+from std_msgs.msg import Float32
 import math
 import time
 import threading
-
-from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 
 
@@ -37,6 +36,8 @@ class AlignActionServer(Node):
         self._aruco_distance = 0.0
         self._aruco_angle = 0.0
         self._aruco_lock = threading.Lock()
+        self._max_speed = 0.1
+        self._max_speed_lock = threading.Lock()
         
         # Publisher für cmd_vel
         self.publisher = self.create_publisher(
@@ -44,20 +45,21 @@ class AlignActionServer(Node):
             '/cmd_vel',
             10
         )
-
-        # Subscriber für Odometrie
-        self.sub_odom = self.create_subscription(
-            Odometry,
-            '/odom',
-            self.listener_callback_fnc,
-            10
-        )
+       
         # Subscriber für Aruco Detection
         self.sub_aruco = self.create_subscription(
             ArucoDetection,
             '/aruco_detections',
             self.aruco_callback_fnc,
             10)
+        
+        # Subscriber für Max Speed
+        self.sub_max_speed = self.create_subscription(
+            Float32,
+            '/max_speed',
+            self.max_speed_callback,
+            10)
+        
         # Action Server
         self.action_server = ActionServer(
             self,
@@ -70,35 +72,47 @@ class AlignActionServer(Node):
         
         self.get_logger().info('Align Action Server initialized')
 
-    def listener_callback_fnc(self, msg: Odometry):
-        self._last_yaw = quaternion_to_yaw(msg.pose.pose.orientation)
         
 
     def goal_callback(self, goal_request):
-        """Callback wenn Goal ankommt """
+        """Callback wenn Goal ankommt"""
         self.get_logger().info('Goal received')
-        
         self.get_logger().info(f'Goal attributes: {dir(goal_request)}')
         return GoalResponse.ACCEPT
+    
     def aruco_callback_fnc(self, msg: ArucoDetection):
-        """ CustomMessage mit Aruco Detection Daten """
+        """CustomMessage mit Aruco Detection Daten"""
         self.get_logger().info(f"ArUco empfangen: ID={msg.aruco_id}, dist={msg.aruco_distance}, angle={msg.aruco_angle}")
         with self._aruco_lock:
             self._aruco_id = msg.aruco_id
             self._aruco_distance = msg.aruco_distance
             self._aruco_angle = msg.aruco_angle
      
+    def max_speed_callback(self, msg: Float32):
+        """Callback für dynamische Geschwindigkeits-Änderung"""
+        speed = msg.data
+        if speed < 0.0:
+            speed = 0.0
+        elif speed > 0.2:
+            speed = 0.2
 
+        with self._max_speed_lock:
+            self._max_speed = speed
+        self.get_logger().info(f"Neue Max-Geschwindigkeit: {speed:.3f} m/s")
+    
+    def get_max_speed(self):
+        """Thread-safe Zugriff auf Max-Geschwindigkeit"""
+        with self._max_speed_lock:
+            return self._max_speed
+    
     def execute_callback_fnc(self, goal_handle):
+        """Hauptschleife für Align Action"""
         self.get_logger().info('Executing alignment')
         
-        
-        if self._last_yaw is None:
-            self.get_logger().warning('No odometry data received yet. Cannot align.')
-            goal_handle.abort()
-            return Align.Result(reached=False)
-            
+    
         state_machine = AlignStateMachine(logger=self.get_logger())
+        state_machine.max_speed = self.get_max_speed()
+        
         rate = self.create_rate(30)  
         timeout = 30.0  
         start_time = time.time()
@@ -116,22 +130,29 @@ class AlignActionServer(Node):
                 self.get_logger().info('Goal cancelled')
                 return Align.Result(reached=False)
             
+            
             with self._aruco_lock:
-                    state_machine.id = self._aruco_id
-                    state_machine.distance = self._aruco_distance
-                    state_machine.angle = self._aruco_angle
+                state_machine.id = self._aruco_id
+                state_machine.distance = self._aruco_distance
+                state_machine.angle = self._aruco_angle
+            
+            
+            state_machine.max_speed = self.get_max_speed()
 
+           
             state_machine.execute()
+            
+            
             cmd = Twist()
             cmd.linear.x = state_machine.linear_speed
             cmd.angular.z = state_machine.angular_speed
             self.publisher.publish(cmd)
 
+            
             feedback = Align.Feedback()
-            feedback.angle_to_goal = state_machine.angle
             goal_handle.publish_feedback(feedback)
 
-            rate.sleep() #warte bis zur nächsten Iteration um Roboternicht ruckeln zu lassen wegen twist comand
+            rate.sleep() #um roboter nicht zu überfluten
 
         self._stop_robot()
 
@@ -147,12 +168,12 @@ class AlignActionServer(Node):
             return result
           
         
-
     def _stop_robot(self):
+        """Stoppt den Roboter"""
         stop_cmd = Twist()
         stop_cmd.linear.x = 0.0
         stop_cmd.angular.z = 0.0
-        self.publisher.publish(stop_cmd)    
+        self.publisher.publish(stop_cmd)
 
 
 def main():
