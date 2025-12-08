@@ -68,6 +68,8 @@ class DriveActionServer(Node):
     def execute_callback_fnc(self, goal_handle): 
         self.get_logger().info('Goal Received! Driving.')
         cmd = Twist()
+        cmd.linear.x = 0
+        cmd.angular.z = 0
         self.goal_handle = goal_handle
         self.goal_finished = False
         self.goal_result = None
@@ -87,7 +89,6 @@ class DriveActionServer(Node):
                 cmd.linear.x = state.max_linear_speed
                 state.state=1
 
-            
             if goal_handle.is_cancel_requested:
                 goal_handle.canceled()
                 self.stop_robot()
@@ -95,11 +96,11 @@ class DriveActionServer(Node):
                 return Drive.Result(reached=False)
 
             state.execute()
-            if self.aruco_id > -1:
-                cmd.angular.z = float (state.angular_cmd )
-            else:
+            if self.aruco_id == -1:
                 cmd.angular.z = 0.0
                 self.stop_robot()
+            else:
+                cmd.angular.z = float(state.angular_cmd)
                 
             self.publisher.publish(cmd)
 

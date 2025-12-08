@@ -1,5 +1,7 @@
-ANGULAR_Z_STEPSIZE = 0.1
+ANGULAR_Z_STEPSIZE = 0.01
 ANGULAR_Z_MAX = 0.2
+
+MAX_LINEAR_SPEED = 0.08
 
 class DriveStateMachine:
     """
@@ -9,8 +11,8 @@ class DriveStateMachine:
         self.state = 1
         self.error = None
         self.drive_complete = False
-        self.max_linear_speed = 0.08
-        self.max_angular_speed = 0.2
+        self.max_linear_speed = MAX_LINEAR_SPEED
+        self.max_angular_speed = ANGULAR_Z_MAX
         self.id = -1
         self.distance = 0               # Distance in m
         self.angle = 0                  # Angle in degrees
@@ -19,7 +21,7 @@ class DriveStateMachine:
 
     def target_actual_comparison(self, target: float, actual: float):
         """
-        Führt einen Soll / Ist vergleich zwischen zwei werten durch und gibt einen bool wert zurück.
+        Führt einen Soll / Ist vergleich zwischen zwei werten durch und modifiziert den zu kommandierenden winkel sowie geschwindigkeit entsprechend.
         
         :param target: Zielwert welcher erreicht werden soll
         :type target: float
@@ -31,25 +33,29 @@ class DriveStateMachine:
             self.angular_cmd += ANGULAR_Z_STEPSIZE
             if abs(self.angular_cmd) > ANGULAR_Z_MAX:
                 self.angular_cmd = ANGULAR_Z_MAX
+                #self.max_linear_speed = 0.04
         elif target < actual:
             self.angular_cmd -= ANGULAR_Z_STEPSIZE
-            print("angular_cmd",self.angular_cmd)
-            if abs(self.angular_cmd) > abs(ANGULAR_Z_MAX):
-                self.angular_cmd = ANGULAR_Z_MAX
-        else:
-           # print('[ERROR] Error im Soll / Ist vergleich! Übergebene werte waren:\n Soll: ', target, 'Ist: ', actual)
-            exit()
+            if abs(self.angular_cmd) > ANGULAR_Z_MAX:
+                self.angular_cmd = -ANGULAR_Z_MAX
+                #self.max_linear_speed = 0.04
+        
+        if abs(self.angular_cmd) < ANGULAR_Z_MAX:
+            self.max_linear_speed = MAX_LINEAR_SPEED
+        
+        # Debug Statement
+        print("angular_cmd: ",self.angular_cmd)
     
     def execute(self):
         match self.state:
             case 1:
                 print('[DEBUG] StateMachine Case 1. Driving')
-                if self.distance < 0.4 and not self.id == -1:
+                if self.distance < 0.45 and not self.id == -1:
                     self.state = 2
                 if abs(self.angle) > self.angle_tolerance:
                     self.target_actual_comparison(0.0, self.angle)
             case 2:
                 print('[DEBUG] StateMachine Case 2. Finished')
                 self.drive_complete = True
-            case 3: 
+            case 3:
                 print("kein Aruco marker ")
