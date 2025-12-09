@@ -17,7 +17,7 @@ class DriveStateMachine:
         self.distance = 0               # Distance in m
         self.angle = 0                  # Angle in degrees
         self.angle_tolerance = 3     # Tolerance in degrees
-        self.angular_cmd = 0            # angular speed to be commanded
+        self.angular_cmd = 0.0          # angular speed to be commanded
 
     def target_actual_comparison(self, target: float, actual: float):
         """
@@ -57,5 +57,3 @@ class DriveStateMachine:
             case 2:
                 print('[DEBUG] StateMachine Case 2. Finished')
                 self.drive_complete = True
-            case 3:
-                print("kein Aruco marker ")
