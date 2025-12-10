@@ -10,32 +10,28 @@ class ActionServerHandler(Node):
     def __init__(self, target_distance=50.0):
         super().__init__('actionserverhandler')
         
-        
+        # Target Distance mit Lock
         self.target_distance = target_distance
         self._target_distance_lock = threading.Lock()
         self.get_logger().info(f'Ziel-Distanz zum Roboter: {self.target_distance} cm')
         
-        
+        # Max Speed mit Lock
         self._max_speed = 0.1  
         self._max_speed_lock = threading.Lock()
         
-
+        # ArUco Detection mit Lock
         self._aruco_id = -1
         self._aruco_lock = threading.Lock()
         self._target_aruco_id = 69  
-        
-        
-        self._current_state = 0  
         self._follow_triggered = False
         
-        
+        # Subscriber
         self.sub_target_distance = self.create_subscription(
             Float32,
             '/target_distance',
             self.target_distance_callback,
             10
         )
-        
         
         self.sub_max_speed = self.create_subscription(
             Float32,
@@ -44,7 +40,6 @@ class ActionServerHandler(Node):
             10
         )
         
-        
         self.sub_aruco = self.create_subscription(
             ArucoDetection,
             '/aruco_detections',
@@ -52,16 +47,16 @@ class ActionServerHandler(Node):
             10
         )
         
-        
+      
         self.actionserver_align = ActionClient(self, Align, 'align')
         self.actionserver_drive = ActionClient(self, Drive, 'drive')
         self.actionserver_follow = ActionClient(self, Follow, 'follow')
         
-        self.timer = self.create_timer(0.1, self.state_machine_loop)
         self.current_action = None
         self._goal_handle = None
         
-        self.get_logger().info('Handler started ')
+        self.get_logger().info('Handler started - starte Align')
+        self.send_align_goal()
 
     def aruco_callback(self, msg: ArucoDetection):
         """Callback für ArUco Detection - prüft auf Trigger ID 69"""
@@ -71,7 +66,9 @@ class ActionServerHandler(Node):
         
         if msg.aruco_id == self._target_aruco_id and not self._follow_triggered:
             self.get_logger().warn(
-                f"ARUCO ID {self._target_aruco_id} Wechsle zu Follow-Modus!"
+                f"ARUCO ID {self._target_aruco_id} erkannt! "
+                f"current_action={self.current_action}, "
+                f"goal_handle={'vorhanden' if self._goal_handle else 'None'}"
             )
             self._follow_triggered = True
             self._trigger_follow_mode()
@@ -80,38 +77,62 @@ class ActionServerHandler(Node):
 
     def _trigger_follow_mode(self):
         """Bricht aktuelle Action ab und startet Follow-Modus"""
-        
         if self.current_action is not None:
             self.get_logger().warn(
                 f"Breche {self.current_action} Action ab für Follow-Modus"
             )
-            self._cancel_current_action()
-    
-        self._current_state = 30
+            
+       
+            cancel_future = self._cancel_current_action()
+            if cancel_future:
+                
+                cancel_future.add_done_callback(self._on_cancel_done)
+                return
         
-        
-        self.get_logger().info("Starte Follow-Modus SOFORT")
-        goal_msg = Follow.Goal()
-        goal_msg.target_distance = self.get_target_distance()
-        goal_msg.max_speed = self.get_max_speed()
-        self.send_goal('follow', goal_msg)
+     
+        self._start_follow()
 
     def _cancel_current_action(self):
         """Versucht die aktuelle Action abzubrechen"""
         if self._goal_handle is not None:
             try:
-                self._goal_handle.cancel_goal_async()
+                cancel_future = self._goal_handle.cancel_goal_async()
                 self.get_logger().info("Cancel Request gesendet")
+                return cancel_future
             except Exception as e:
                 self.get_logger().error(f"Fehler beim Abbrechen: {e}")
+        else:
+            self.get_logger().warn("Kein Goal Handle vorhanden - kann nicht canceln")
         
         self.current_action = None
+        return None
+
+    def _on_cancel_done(self, future):
+        """Callback nach erfolgreichem Cancel"""
+        try:
+            cancel_response = future.result()
+            if len(cancel_response.goals_canceling) > 0:
+                self.get_logger().info("Cancel ERFOLGREICH - starte Follow")
+            else:
+                self.get_logger().warn("Cancel fehlgeschlagen - starte Follow trotzdem")
+        except Exception as e:
+            self.get_logger().error(f"Cancel Callback Fehler: {e}")
+        
+        self._start_follow()
+
+    def _start_follow(self):
+        """Startet Follow-Modus"""
+        self.get_logger().info("Starte Follow-Modus JETZT")
+        goal_msg = Follow.Goal()
+        goal_msg.target_distance = self.get_target_distance()
+        goal_msg.max_speed = self.get_max_speed()
+        self.send_goal('follow', goal_msg)
 
     def max_speed_callback(self, msg: Float32):
         """Callback für Geschwindigkeitsvorgabe - begrenzt auf 0.0 bis 0.2 m/s"""
         speed = msg.data
         
-        
+     
         if speed < 0.0:
             speed = 0.0
             self.get_logger().warn(f"Geschwindigkeit < 0! Setze auf 0.0 m/s")
@@ -127,13 +148,14 @@ class ActionServerHandler(Node):
     def target_distance_callback(self, msg: Float32):
         """Callback für Ziel-Distanz in cm"""
         distance = msg.data
-   
+        
+        # Begrenzung auf 10 bis 100 cm
         if distance < 20.0:
-            distance = 10.0
-            self.get_logger().warn(f"Distanz < 10cm! Setze auf 10 cm")
+            distance = 20.0
+            self.get_logger().warn(f"Distanz < 20cm! Setze auf 20 cm")
         elif distance > 100.0:
             distance = 100.0
-            self.get_logger().warn(f"Distanz > 500cm! Begrenze auf 500 cm")
+            self.get_logger().warn(f"Distanz > 100cm! Begrenze auf 100 cm")
         
         with self._target_distance_lock:
             self.target_distance = distance
@@ -154,22 +176,6 @@ class ActionServerHandler(Node):
         """Gibt aktuelle Aruco ID zurück"""
         with self._aruco_lock:
             return self._aruco_id
-
-    def state_machine_loop(self):
-        """Timer Callback - Ablaufsteuerung"""
-        
-        if self._follow_triggered:
-            return
-        
-        # Nur neue Actions starten wenn keine aktiv ist
-        if self.current_action is not None:
-            return
-        
-      
-        if self._current_state == 0:  
-            self.get_logger().info("State: IDLE -> Starte Align")
-            self._current_state = 10
-            self.send_align_goal()
 
     def send_align_goal(self):
         """Startet Align Action"""
@@ -224,12 +230,12 @@ class ActionServerHandler(Node):
             return
         
         self.get_logger().info('Goal accepted :)')
-        self._goal_handle = goal_handler  
+        self._goal_handle = goal_handler
         self._get_result_promise = goal_handler.get_result_async()
         self._get_result_promise.add_done_callback(self.get_result_callback)
 
     def get_result_callback(self, promise):
-        """Callback wenn Server fertig ist - prüft Status und Result"""
+        """Callback wenn Server fertig ist - steuert den Ablauf"""
         result_response = promise.result()
         result = result_response.result
         status = result_response.status
@@ -247,31 +253,33 @@ class ActionServerHandler(Node):
             self.current_action = None
             return
         
-
+       
         match self.current_action:
             case 'align':
                 if result.reached:
-                    self.get_logger().info('Align Server ERFOLGREICH')
-                    self._current_state = 20  
+                    self.get_logger().info('Align Server ERFOLGREICH → starte Drive')
+                    self.current_action = None
                     self.send_drive_goal()
                 else:
                     self.get_logger().warn('Align beendet aber reached=False')
+                    self.current_action = None
             
             case 'drive':
                 if result.reached:
-                    self.get_logger().info('Drive Server ERFOLGREICH')
-                    self._current_state=0
+                    self.get_logger().info('Drive Server ERFOLGREICH → starte Align')
+                    self.current_action = None
+                    self.send_align_goal()
                 else:
                     self.get_logger().warn('Drive beendet aber reached=False')
+                    self.current_action = None
             
             case 'follow':
                 if result.reached:
                     self.get_logger().info('Follow Server ERFOLGREICH - FERTIG!')
-                    self._current_state=10
+                    self.current_action = None
                 else:
                     self.get_logger().warn('Follow beendet aber reached=False')
-        
-        self.current_action = None
+                    self.current_action = None
 
     def feedback_callback(self, feedback_msg):
         """Callback für Feedback während der Ausführung"""
@@ -279,11 +287,8 @@ class ActionServerHandler(Node):
         
         match self.current_action:
             case 'align':
-                if feedback.angle_to_goal:
-                    self.get_logger().info(
-                        f'Align Feedback: angle={feedback.angle_to_goal:.2f}°'
-                    )
-            
+                self.get_logger().info(f'Align Feedback' )
+        
             case 'drive':
                 self.get_logger().info(f'Drive Feedback: {feedback}')
             
@@ -303,11 +308,11 @@ def main(args=None):
         print("=" * 50)
         
         handler = ActionServerHandler(target_distance=target_distance)
-        handler.get_logger().info('Handler started - press Ctrl+C to exit')
+        handler.get_logger().info('Handler läuft - drücke Ctrl+C zum Beenden')
         rclpy.spin(handler)
     
     except KeyboardInterrupt:
-        handler.get_logger().info('Handler stopped')
+        handler.get_logger().info('Handler gestoppt')
     
     finally:
         rclpy.shutdown()
