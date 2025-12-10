@@ -16,19 +16,19 @@ class ActionServerHandler(Node):
         self.get_logger().info(f'Ziel-Distanz zum Roboter: {self.target_distance} cm')
         
         
-        self._max_speed = 0.1  # Standardwert
+        self._max_speed = 0.1  
         self._max_speed_lock = threading.Lock()
         
-        # Aruco Detection für Trigger
+
         self._aruco_id = -1
         self._aruco_lock = threading.Lock()
         self._target_aruco_id = 69  
         
-        # State für normale Ablaufsteuerung
-        self._current_state = 0  # 0=Idle, 10=Align, 20=Drive, 30=Follow
+        
+        self._current_state = 0  
         self._follow_triggered = False
         
-        # Topic für Ziel-Distanz
+        
         self.sub_target_distance = self.create_subscription(
             Float32,
             '/target_distance',
@@ -36,7 +36,7 @@ class ActionServerHandler(Node):
             10
         )
         
-        # Topic für Geschwindigkeitsvorgabe
+        
         self.sub_max_speed = self.create_subscription(
             Float32,
             '/max_speed',
@@ -44,7 +44,7 @@ class ActionServerHandler(Node):
             10
         )
         
-        # ArUco Subscription für Trigger
+        
         self.sub_aruco = self.create_subscription(
             ArucoDetection,
             '/aruco_detections',
@@ -52,7 +52,7 @@ class ActionServerHandler(Node):
             10
         )
         
-        # Action Clients
+        
         self.actionserver_align = ActionClient(self, Align, 'align')
         self.actionserver_drive = ActionClient(self, Drive, 'drive')
         self.actionserver_follow = ActionClient(self, Follow, 'follow')
@@ -89,7 +89,7 @@ class ActionServerHandler(Node):
     
         self._current_state = 30
         
-        # Direkt Follow-Goal senden
+        
         self.get_logger().info("Starte Follow-Modus SOFORT")
         goal_msg = Follow.Goal()
         goal_msg.target_distance = self.get_target_distance()
@@ -157,7 +157,7 @@ class ActionServerHandler(Node):
 
     def state_machine_loop(self):
         """Timer Callback - Ablaufsteuerung"""
-        # Wenn Follow getriggert wurde, keine weitere State Machine
+        
         if self._follow_triggered:
             return
         
@@ -175,12 +175,14 @@ class ActionServerHandler(Node):
         """Startet Align Action"""
         self.get_logger().info("Sende Align Goal")
         goal_msg = Align.Goal()
+        goal_msg.max_speed = self.get_max_speed()
         self.send_goal('align', goal_msg)
 
     def send_drive_goal(self):
         """Startet Drive Action"""
         self.get_logger().info("Sende Drive Goal")
         goal_msg = Drive.Goal()
+        goal_msg.max_speed = self.get_max_speed()
         self.send_goal('drive', goal_msg)
 
     def send_follow_goal(self):
@@ -222,7 +224,7 @@ class ActionServerHandler(Node):
             return
         
         self.get_logger().info('Goal accepted :)')
-        self._goal_handle = goal_handler  # Speichere Goal Handle für Cancel
+        self._goal_handle = goal_handler  
         self._get_result_promise = goal_handler.get_result_async()
         self._get_result_promise.add_done_callback(self.get_result_callback)
 
@@ -245,7 +247,7 @@ class ActionServerHandler(Node):
             self.current_action = None
             return
         
-        # Action war erfolgreich - nächster State
+
         match self.current_action:
             case 'align':
                 if result.reached:
@@ -258,7 +260,7 @@ class ActionServerHandler(Node):
             case 'drive':
                 if result.reached:
                     self.get_logger().info('Drive Server ERFOLGREICH')
-                    self._current_state=10
+                    self._current_state=0
                 else:
                     self.get_logger().warn('Drive beendet aber reached=False')
             
