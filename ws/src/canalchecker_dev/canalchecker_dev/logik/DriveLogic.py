@@ -1,7 +1,7 @@
-ANGULAR_Z_STEPSIZE = 0.01
+KP = 1.1
 ANGULAR_Z_MAX = 0.2
-
 MAX_LINEAR_SPEED = 0.08
+ANGLE_TOLERABLE_ERR = 3
 
 class DriveStateMachine:
     """
@@ -21,7 +21,7 @@ class DriveStateMachine:
 
     def target_actual_comparison(self, target: float, actual: float):
         """
-        Führt einen Soll / Ist vergleich zwischen zwei werten durch und modifiziert den zu kommandierenden winkel sowie geschwindigkeit entsprechend.
+        Führt einen Soll / Ist vergleich zwischen zwei werten durch und implementiert eine entsprechende P-Regelung. Regelt winkel sowie die Geschwindigkeit basierend auf diesem.
         
         :param target: Zielwert welcher erreicht werden soll
         :type target: float
@@ -29,22 +29,24 @@ class DriveStateMachine:
         :type actual: float
         """
 
-        if target > actual:
-            self.angular_cmd += ANGULAR_Z_STEPSIZE
-            if abs(self.angular_cmd) > ANGULAR_Z_MAX:
-                self.angular_cmd = ANGULAR_Z_MAX
-                #self.max_linear_speed = 0.04
-        elif target < actual:
-            self.angular_cmd -= ANGULAR_Z_STEPSIZE
-            if abs(self.angular_cmd) > ANGULAR_Z_MAX:
-                self.angular_cmd = -ANGULAR_Z_MAX
-                #self.max_linear_speed = 0.04
+        error = target - actual
+
+        self.angular_cmd = KP * error
+
+        if self.angular_cmd > ANGULAR_Z_MAX:
+            self.angular_cmd = ANGULAR_Z_MAX
+        elif self.angular_cmd < - ANGULAR_Z_MAX:
+            self.angular_cmd = -ANGULAR_Z_MAX
         
-        if abs(self.angular_cmd) < ANGULAR_Z_MAX:
+        if abs(error) < 0.1:
             self.max_linear_speed = MAX_LINEAR_SPEED
+        elif abs(error) < 0.3:
+            self.max_linear_speed = 0.5 * MAX_LINEAR_SPEED
+        else:
+            self.max_linear_speed = 0.2 * MAX_LINEAR_SPEED
         
-        # Debug Statement
-        print("angular_cmd: ",self.angular_cmd)
+        # DEBUG
+        print("Error: ", float(error), "\nangular_cmd: ", float(self.angular_cmd), "\nLinear speed: ", float(self.max_linear_speed))
     
     def execute(self):
         match self.state:
