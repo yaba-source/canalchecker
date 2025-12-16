@@ -69,7 +69,20 @@ class DriveActionServer(Node):
        # self.get_logger().info(f"Pos X: {msg.pose.pose.position.x:.3f} " f"Pos Y: {msg.pose.pose.position.y:.3f}")     
        pass   
 
-    def execute_callback_fnc(self, goal_handle): 
+    def execute_callback_fnc(self, goal_handle):
+        """
+        ## Description
+        Hauptfunktion des ActionServers. Gibt zuerst die subscribten daten an die Statemachine weiter. Ist die Aruco ID -1 wird angehalten, ansonsten gefahren.
+        Sollte das Goal gecancelled werden wird hiernach auch hier geprüft. Sollte dies nicht zutreffen wird die Statemachine geexecuted.
+        Zuletzt wird auf '/cmd_vel' gepublisht und feedback an den handler gesendet.
+
+        Sollte man die 'debugging_function' noch finden, habe ich vergessen diese zu entfernen. (**Schere**)
+
+        :param goal_handle: Goal handle welcher dem Server vom Handler übergeben wird.
+        :type goal_handle: goal_handle
+        :return result: Result welches im Interface definiert ist
+        """
+
         self.get_logger().info('Goal Received! Driving.')
         self.goal_handle = goal_handle
         self.goal_finished = False
@@ -96,14 +109,6 @@ class DriveActionServer(Node):
                 return Drive.Result(reached=False)
 
             state.execute()
-            if self.aruco_id == -1:
-                self.cmd.angular.z = 0.0
-                self.stop_robot()
-                self.debugging_function(float(self.cmd.linear.x), float(self.cmd.linear.z), float(self.aruco_dist), float(state.distance))
-            else:
-                self.cmd.angular.z = state.angular_cmd
-                self.debugging_function(float(self.cmd.linear.x), float(self.cmd.linear.z), float(self.aruco_dist), float(state.distance))
-                
             self.publisher.publish(self.cmd)
 
             feedback = Drive.Feedback()

@@ -114,7 +114,7 @@ class AlignActionServer(Node):
         state_machine.max_speed = self.get_max_speed()
         
         rate = self.create_rate(30)  
-        timeout = 30.0  
+        timeout = 60.0  
         start_time = time.time()
 
         while rclpy.ok() and not state_machine.align_done:

@@ -181,7 +181,7 @@ class ActionServerHandler(Node):
         """Startet Align Action"""
         self.get_logger().info("Sende Align Goal")
         goal_msg = Align.Goal()
-        goal_msg.max_speed = self.get_max_speed()
+        #goal_msg.max_speed = self.get_max_speed()
         self.send_goal('align', goal_msg)
 
     def send_drive_goal(self):
