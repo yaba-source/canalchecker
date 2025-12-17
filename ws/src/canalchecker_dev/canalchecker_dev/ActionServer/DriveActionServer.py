@@ -6,7 +6,7 @@ from canalchecker_interface.action import Drive
 from canalchecker_interface.msg import ArucoDetection
 from canalchecker_dev.logik.DriveLogic import DriveStateMachine
 from rclpy.callback_groups import ReentrantCallbackGroup
-from rclpy.action import ActionServer, GoalResponse
+from rclpy.action import ActionServer, GoalResponse, CancelResponse
 import time
 import threading
 
@@ -22,6 +22,7 @@ class DriveActionServer(Node):
             'drive',
             execute_callback=self.execute_callback_fnc,
             goal_callback=self.goal_callback_fnc,
+            cancel_callback=self.cancel_callback_fnc,
             callback_group=ReentrantCallbackGroup()
         )
         self.goal_handle = None
@@ -58,6 +59,10 @@ class DriveActionServer(Node):
     def goal_callback_fnc(self, goal_request):
         self.get_logger().info('Goal received')
         return GoalResponse.ACCEPT
+
+    def cancel_callback_fnc(self, goal_handle):
+        self.get_logger().info('Follow goal cancel requested')
+        return CancelResponse.ACCEPT
 
     def aruco_callback_fnc(self, msg: ArucoDetection):
         with self.aruco_lock:
@@ -101,12 +106,14 @@ class DriveActionServer(Node):
                 self.get_logger().info(f'\nAruco Marker found {self.aruco_id}.\nDistance: {self.aruco_dist}\nAngle: {self.aruco_angle}')
                 self.cmd.linear.x = state.max_linear_speed
                 self.debugging_function(float(self.cmd.linear.x), float(self.cmd.linear.z), float(self.aruco_dist), float(state.distance))
-
+            
             if goal_handle.is_cancel_requested:
                 goal_handle.canceled()
+                result = Drive.Result()
+                result.reached = False
                 self.stop_robot()
                 self.get_logger().info('Goal cancelled. Robot Stopped.')
-                return Drive.Result(reached=False)
+                return result
 
             state.execute()
             self.publisher.publish(self.cmd)

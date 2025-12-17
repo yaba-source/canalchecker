@@ -2,7 +2,7 @@ import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.action import ActionServer, GoalResponse, CancelResponse
-from rclpy.node import Node
+import time
 from canalchecker_interface.action import Follow
 from canalchecker_interface.msg import ArucoDetection
 from canalchecker_dev.logik.FollowLogic import FollowStateMachine
@@ -10,6 +10,7 @@ from std_msgs.msg import Float32
 import threading
 from geometry_msgs.msg import Twist
 
+ARUC69_CORRECTION_FACTOR=0.479 # Korrekturfaktor, da der Marker 69 um 54% kleiner als marker 0 ist
 
 class FollowActionServer(Node):
     def __init__(self):
@@ -95,7 +96,7 @@ class FollowActionServer(Node):
         """Callback für Aruco Detection Daten"""
         with self._aruco_lock:
             self._aruco_id = msg.aruco_id
-            self._aruco_distance = msg.aruco_distance
+            self._aruco_distance = (msg.aruco_distance * ARUC69_CORRECTION_FACTOR)
             self._aruco_angle = msg.aruco_angle
 
     def target_distance_callback(self, msg: Float32):
@@ -138,15 +139,21 @@ class FollowActionServer(Node):
         state_machine.max_speed = self.get_max_speed()
         
         rate = self.create_rate(30)
+        aruco_last_seen = time.time()
         
         while rclpy.ok() and not state_machine.follow_done:
-            # Roboter nicht gefunden und zu lange kein Marker
-            if state_machine.robot_found == False and state_machine.marker_lost_counter > 10:
-                self.get_logger().info("Roboter nicht gefunden, Abbruch des Follow Actions")
-                goal_handle.abort()
+            if state_machine.id == -1:
+                time_now = time.time()
+                self.get_logger().info("Roboter nicht gefunden. Warte 30sek. Danach abbruch")
                 self._stop_robot()
-                return Follow.Result(reached=False)
-            
+                if (time_now - aruco_last_seen) > 30:
+                    self.get_logger().info("Keinen 69er Marker gefunden. Abbruch!")
+                    goal_handle.abort()
+                    result = Follow.Result()
+                    result.reached = False
+                    return result
+            else:
+                aruco_last_seen = time.time()
           
             if goal_handle.is_cancel_requested:
                 goal_handle.canceled()
@@ -183,7 +190,7 @@ class FollowActionServer(Node):
         # Follow abgeschlossen
         self._stop_robot()
 
-        if goal_handle.is_active:
+        if state_machine.follow_done:
             goal_handle.succeed()
             result = Follow.Result()
             result.reached = True
