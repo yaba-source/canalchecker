@@ -3,7 +3,7 @@ import math
 KP = 2                  # Reglerverstärkung
 ANGULAR_Z_MAX = 0.2     # Maximale Winkelgeschwindigkeit
 MAX_LINEAR_SPEED = 0.1  # Maximale Lineargeschwindigkeit (wird noch durch pub-sub ersetzt)
-ANGLE_TOLERABLE_ERR = 3 # Tolerierbarer Winkelfehler (Unterhalb diesem wert keine Regelung)
+ANGLE_TOLERABLE_ERR = 1# Tolerierbarer Winkelfehler (Unterhalb diesem wert keine Regelung)
 
 class DriveStateMachine:
     """
