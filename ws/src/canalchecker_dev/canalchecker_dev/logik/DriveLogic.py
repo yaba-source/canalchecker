@@ -40,7 +40,11 @@ class DriveStateMachine:
 
         error = target - actual
 
+<<<<<<< HEAD
         (-self.angular_cmd) = KP * error
+=======
+        self.angular_cmd = -(KP * error)
+>>>>>>> 22e9992 (DriveSim und DriveLogic abgeändert)
 
         if self.angular_cmd > ANGULAR_Z_MAX:
             self.angular_cmd = ANGULAR_Z_MAX

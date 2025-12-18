@@ -1,7 +1,10 @@
 import time
 from logic import DriveStateMachine
+import math
 
-distance = 1 # Distanz zum ArUco Marker
+distance = 4 # Distanz zum ArUco Marker
+angle = 4
+cnt = 0
 
 class test():
     def __init__(self):
@@ -14,12 +17,16 @@ class test():
 ############# EXTERNALLY SUPPLIED DATA BEGIN #############
     def ExternalDistance(self):
         global distance
+        global angle
+        global cnt
         print("Distance: ", distance)
         distance = distance - self.cmd_linear_x
         self.aruco_dist = distance
+        angle = math.degrees(math.radians(angle) - math.radians(self.cmd_angular_z))
+        
         if distance < 0.45:
             self.aruco_id = -1
-        time.sleep(1)
+        time.sleep(3)
 ############## EXTERNALLY SUPPLIED DATA END ##############
 
     def execute_callback_fnc(self): 
@@ -42,7 +49,7 @@ class test():
                 print("No ArUco found. Stopping drive.")
                 self.stop_robot()
             else:
-                print("ArUco found.")
+                print("\n\n ArUco found.")
                 self.cmd_linear_x = state.max_linear_speed
 
             #if goal_handle.is_cancel_requested:
@@ -59,6 +66,7 @@ class test():
                 self.cmd_angular_z = float(state.angular_cmd)
                 
             print("Publishing Linear: ", self.cmd_linear_x)
+            print("Angle: ", self.aruco_angle)
             print("Publishing Angular: ", self.cmd_angular_z)
 
             #feedback = Drive.Feedback()

@@ -1,7 +1,10 @@
-ANGULAR_Z_STEPSIZE = 0.01
+KP = 2
 ANGULAR_Z_MAX = 0.2
-
+ANGLE_TOLERABLE_ERR = 3
 MAX_LINEAR_SPEED = 0.08
+
+import math
+import random
 
 class DriveStateMachine:
     """
@@ -19,7 +22,7 @@ class DriveStateMachine:
         self.angle_tolerance = 3     # Tolerance in degrees
         self.angular_cmd = 0            # angular speed to be commanded
 
-    def target_actual_comparison(self, target: float, actual: float):
+    def p_controller(self, target: float, actual: float):
         """
         Führt einen Soll / Ist vergleich zwischen zwei werten durch und modifiziert den zu kommandierenden winkel sowie geschwindigkeit entsprechend.
         
@@ -29,16 +32,14 @@ class DriveStateMachine:
         :type actual: float
         """
 
-        if target > actual:
-            self.angular_cmd += ANGULAR_Z_STEPSIZE
-            if abs(self.angular_cmd) > ANGULAR_Z_MAX:
-                self.angular_cmd = ANGULAR_Z_MAX
-                #self.max_linear_speed = 0.04
-        elif target < actual:
-            self.angular_cmd -= ANGULAR_Z_STEPSIZE
-            if abs(self.angular_cmd) > ANGULAR_Z_MAX:
-                self.angular_cmd = -ANGULAR_Z_MAX
-                #self.max_linear_speed = 0.04
+        error = target - actual
+
+        self.angular_cmd = -(KP * error)
+
+        if self.angular_cmd > ANGULAR_Z_MAX:
+            self.angular_cmd = ANGULAR_Z_MAX
+        elif self.angular_cmd < -ANGULAR_Z_MAX:
+            self.angular_cmd = -ANGULAR_Z_MAX
         
         if abs(self.angular_cmd) < ANGULAR_Z_MAX:
             self.max_linear_speed = MAX_LINEAR_SPEED
@@ -50,10 +51,12 @@ class DriveStateMachine:
         match self.state:
             case 1:
                 print('[DEBUG] StateMachine Case 1. Driving')
-                if self.distance < 0.45:
+                if self.distance < 0.5 and not self.id == -1:
                     self.state = 2
-                if abs(self.angle) > self.angle_tolerance:
-                    self.target_actual_comparison(0.0, self.angle)
+                if abs(self.angle) > ANGLE_TOLERABLE_ERR:
+                    self.p_controller(0.0, math.radians(self.angle))
+                elif abs(self.angle) < ANGLE_TOLERABLE_ERR:
+                    self.angular_cmd = 0.0
             case 2:
                 print('[DEBUG] StateMachine Case 2. Finished')
                 self.drive_complete = True
