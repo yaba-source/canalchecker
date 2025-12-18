@@ -297,6 +297,7 @@ class ActionServerHandler(Node):
                 if result.reached:
                     self.get_logger().info('Follow Server ERFOLGREICH - FERTIG!')
                     self.current_action = None
+                    self._follow_triggered = False
                     self.send_align_goal()
                 else:
                     self.get_logger().warn('Follow beendet aber reached=False')
