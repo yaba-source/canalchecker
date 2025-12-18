@@ -40,6 +40,15 @@ class FollowStateMachine:
 
         return -control
     
+    def pcontroller_linear(self, distance_error):
+        """P-Regler für Abstandsregelung"""
+        control = self.kp_linear * distance_error
+        if control > self.max_linear_speed:
+            control = self.max_linear_speed
+        elif control < -self.max_linear_speed:
+            control = -self.max_linear_speed
+        return control
+    
     def setSpeedPara(self, linear, angular):
         self.linear_speed = linear
         self.angular_speed = angular
@@ -71,7 +80,10 @@ class FollowStateMachine:
 
                     angle_rad = math.radians(self.angle)
                     self.angular_speed = self.pcontroller_angular(angle_rad)
-                    self.linear_speed = self.max_speed
+                    
+                    # Abstandsregelung mit P-Regler
+                    distance_error = self.distance - self.distance_to_robot
+                    self.linear_speed = self.pcontroller_linear(distance_error)
 
                 else:
                     self.logger.info("Roboter verloren, suche erneut.")

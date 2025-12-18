@@ -40,7 +40,7 @@ class DriveStateMachine:
 
         error = target - actual
 
-        self.angular_cmd = KP * error
+        (-self.angular_cmd) = KP * error
 
         if self.angular_cmd > ANGULAR_Z_MAX:
             self.angular_cmd = ANGULAR_Z_MAX

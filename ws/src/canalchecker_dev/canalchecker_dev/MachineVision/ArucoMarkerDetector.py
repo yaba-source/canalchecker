@@ -13,8 +13,8 @@ class ArucoMarkerDetector:
         self.aruco_params = cv2.aruco.DetectorParameters()
         
         self.camera_matrix = np.array([
-            [595.57106144,   0.0,         324.20338126],
-            [0.0,            591.75843245,203.11542402],
+            [595.57106144,   0.0,         320.0],
+            [0.0,            591.75843245,240.0],
             [0.0,              0.0,         1.0       ]
         ], dtype=np.float32)
         
