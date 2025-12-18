@@ -98,7 +98,7 @@ class FollowActionServer(Node):
         """Callback für Aruco Detection Daten"""
         with self._aruco_lock:
             self._aruco_id = msg.aruco_id
-            self._aruco_distance = (msg.aruco_distance * ARUC69_CORRECTION_FACTOR)
+            self._aruco_distance = (msg.aruco_distance)# Aruco detection factor rausgenommen und im Detector angepasst
             self._aruco_angle = msg.aruco_angle
 
     def target_distance_callback(self, msg: Float32):
@@ -133,7 +133,7 @@ class FollowActionServer(Node):
         """Hauptschleife für Follow Action"""
         self.get_logger().info('Executing follow action')
 
-        # State Machine initialisieren
+        
         state_machine = FollowStateMachine(logger=self.get_logger())
         
         # Ziel-Distanz und Max-Geschwindigkeit in State Machine setzen
@@ -171,7 +171,7 @@ class FollowActionServer(Node):
                 self.get_logger().info('Goal cancelled')
                 return Follow.Result(reached=False)
             
-            # Aktuelle Aruco Daten in State Machine übertragen
+            # Aktuelle Aruco Daten in State Machine übertragen mit thread-lock
             with self._aruco_lock:
                 state_machine.id = self._aruco_id
                 state_machine.distance = self._aruco_distance

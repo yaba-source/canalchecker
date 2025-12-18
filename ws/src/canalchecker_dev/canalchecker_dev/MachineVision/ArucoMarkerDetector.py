@@ -3,10 +3,14 @@ import numpy as np
 import math
 
 class ArucoMarkerDetector:
+    # Marker sizes in meters
+    MARKER_SIZES = {
+        0: 0.175,   
+        69: 0.075   
+    }
     def __init__(self):
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_100)
         self.aruco_params = cv2.aruco.DetectorParameters()
-        self.marker_size = 0.175  
         
         self.camera_matrix = np.array([
             [595.57106144,   0.0,         324.20338126],
@@ -20,15 +24,6 @@ class ArucoMarkerDetector:
             -0.00611864,
             0.00719842,
             3.41067428
-        ], dtype=np.float32)
-        
-        
-        half_size = self.marker_size / 2.0
-        self.obj_points = np.array([
-            [-half_size,  half_size, 0],  
-            [ half_size,  half_size, 0], 
-            [ half_size, -half_size, 0],  
-            [-half_size, -half_size, 0]   
         ], dtype=np.float32)
         
         self.frame = None
@@ -72,11 +67,20 @@ class ArucoMarkerDetector:
             mid = marker_id[0]
             
            
+            marker_size = self.MARKER_SIZES.get(mid, 0.175)  
+            half_size = marker_size / 2.0
+            obj_points = np.array([
+                [-half_size,  half_size, 0],  
+                [ half_size,  half_size, 0], 
+                [ half_size, -half_size, 0],  
+                [-half_size, -half_size, 0]   
+            ], dtype=np.float32)
+            
             image_points = self.corners[i][0].astype(np.float32)
             
 
             success, rvec, tvec = cv2.solvePnP(
-                self.obj_points,
+                obj_points,
                 image_points,
                 self.camera_matrix,
                 self.dist_coeffs,

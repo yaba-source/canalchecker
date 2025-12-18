@@ -169,7 +169,7 @@ class ActionServerHandler(Node):
         """Callback für Ziel-Distanz in cm"""
         distance = msg.data
         
-        # Begrenzung auf 10 bis 100 cm
+        # Begrenzung auf 20 bis 100 cm
         if distance < 20.0:
             distance = 20.0
             self.get_logger().warn(f"Distanz < 20cm! Setze auf 20 cm")
@@ -201,7 +201,7 @@ class ActionServerHandler(Node):
         """Startet Align Action"""
         self.get_logger().info("Sende Align Goal")
         goal_msg = Align.Goal()
-        #goal_msg.max_speed = self.get_max_speed()
+        goal_msg.max_speed = self.get_max_speed()
         self.send_goal('align', goal_msg)
 
     def send_drive_goal(self):
@@ -331,7 +331,7 @@ def main(args=None):
         speed_input = input("Soll Geschwindigkeit eingeben (in m/s): ")
         try:
             speed_target = float(speed_input)
-            print(f"Eingegebene geschwindigkeit: {speed_input} m/s")
+            print(f"Eingegebene Geschwindigkeit: {speed_input} m/s")
         except ValueError:
             print("Ungültige Eingabe! Geschwindigkeit 0 m/s. Beende Handler. Bitte versuchen sie es später erneut")
             speed_target = 0
