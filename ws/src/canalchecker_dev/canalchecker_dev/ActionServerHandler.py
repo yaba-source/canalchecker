@@ -7,7 +7,7 @@ from std_msgs.msg import Float32
 import threading
 
 class ActionServerHandler(Node):
-    def __init__(self, target_distance=50.0):
+    def __init__(self, target_distance=50.0, speed_target=0):
         super().__init__('actionserverhandler')
         
         # Target Distance mit Lock
@@ -16,8 +16,9 @@ class ActionServerHandler(Node):
         self.get_logger().info(f'Ziel-Distanz zum Roboter: {self.target_distance} cm')
         
         # Max Speed mit Lock
-        self._max_speed = 0.1  
+        self._max_speed = speed_target
         self._max_speed_lock = threading.Lock()
+        self.get_logger().info(f'Alle Server Kommandieren ein Vmax von {self._max_speed} m/s')
         
         # ArUco Detection mit Lock
         self._aruco_id = -1
@@ -46,7 +47,26 @@ class ActionServerHandler(Node):
             self.aruco_callback,
             10
         )
+
+        self.publisher_speed = self.create_publisher(
+            Float32,
+            '/max_speed',
+            10
+        )
+
+        self.publisher_distance = self.create_publisher(
+            Float32,
+            '/target_distance',
+            10
+        )
         
+        speed_msg = Float32()
+        speed_msg.data = self._max_speed
+        self.publisher_speed.publish(speed_msg)
+
+        distance_target = Float32()
+        distance_target.data = self.target_distance
+        self.publisher_distance.publish(distance_target)
       
         self.actionserver_align = ActionClient(self, Align, 'align')
         self.actionserver_drive = ActionClient(self, Drive, 'drive')
@@ -277,6 +297,7 @@ class ActionServerHandler(Node):
                 if result.reached:
                     self.get_logger().info('Follow Server ERFOLGREICH - FERTIG!')
                     self.current_action = None
+                    self.send_align_goal()
                 else:
                     self.get_logger().warn('Follow beendet aber reached=False')
                     self.current_action = None
@@ -306,8 +327,18 @@ def main(args=None):
             print("Ungültige Eingabe! Verwende Standard: 50 cm")
             target_distance = 50.0
         print("=" * 50)
+
+        speed_input = input("Soll Geschwindigkeit eingeben (in m/s): ")
+        try:
+            speed_target = float(speed_input)
+            print(f"Eingegebene geschwindigkeit: {speed_input} m/s")
+        except ValueError:
+            print("Ungültige Eingabe! Geschwindigkeit 0 m/s. Beende Handler. Bitte versuchen sie es später erneut")
+            speed_target = 0
+            exit(187)
+        print("=" * 50)
         
-        handler = ActionServerHandler(target_distance=target_distance)
+        handler = ActionServerHandler(target_distance=target_distance, speed_target = speed_target)
         handler.get_logger().info('Handler läuft - drücke Ctrl+C zum Beenden')
         rclpy.spin(handler)
     

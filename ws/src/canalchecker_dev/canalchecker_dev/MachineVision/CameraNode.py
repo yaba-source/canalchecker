@@ -1,6 +1,7 @@
-
 import rclpy
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
+import numpy as np
 from .PictureProcessing import PictureProcessing
 from canalchecker_interface.msg import ArucoDetection
 
@@ -17,7 +18,6 @@ class CameraNode(Node):
         )
 
         self.timer = self.create_timer(1/30, self.timer_callback_fnc)
-        self.count=0
 
     def timer_callback_fnc(self):
         aruco_data = ArucoDetection()
@@ -25,13 +25,19 @@ class CameraNode(Node):
         functioncall = PictureProcessing()
         image_processed = functioncall.process_frame()
 
-     
-        aruco_data.aruco_distance = float(image_processed[1])
-        aruco_data.aruco_angle = float(image_processed[2])
-        aruco_data.aruco_id = int(image_processed[0])
+        ids_array, distances_array, angles_array = image_processed
+        
+        if ids_array is not None and ids_array.size > 0:
+            for i in range(ids_array.size):
+                aruco_data = ArucoDetection()
+                
+                aruco_data.aruco_id = int(ids_array[i])
+                aruco_data.aruco_distance = float(distances_array[i])
+                aruco_data.aruco_angle = float(angles_array[i])
+                
+                print(f"Published ID {ids_array[i]}: dist={distances_array[i]:.2f}, angle={angles_array[i]:.1f}")
         
         self.publisher_dist.publish(aruco_data)
-        self.count=self.count+1
         
 
 
@@ -39,7 +45,8 @@ def main():
     rclpy.init()
     try:
         camera_node = CameraNode()
-        rclpy.spin(camera_node)
+        multithread_executor = MultiThreadedExecutor()
+        rclpy.spin(camera_node, executor=multithread_executor)
     finally:
         rclpy.shutdown()
 

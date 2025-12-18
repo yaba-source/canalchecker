@@ -2,7 +2,9 @@ import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.action import ActionServer, GoalResponse, CancelResponse
+from rclpy.node import Node
 import time
+from rclpy.duration import Duration
 from canalchecker_interface.action import Follow
 from canalchecker_interface.msg import ArucoDetection
 from canalchecker_dev.logik.FollowLogic import FollowStateMachine
@@ -10,7 +12,7 @@ from std_msgs.msg import Float32
 import threading
 from geometry_msgs.msg import Twist
 
-ARUC69_CORRECTION_FACTOR=0.479 # Korrekturfaktor, da der Marker 69 um 54% kleiner als marker 0 ist
+ARUC69_CORRECTION_FACTOR=0.479  # Korrekturfaktor, da der Marker 69 um 54% kleiner als marker 0 ist
 
 class FollowActionServer(Node):
     def __init__(self):
@@ -27,7 +29,7 @@ class FollowActionServer(Node):
         
         # Ziel-Distanz und Max-Geschwindigkeit aus Topics
         self._target_distance = 50.0  # Standard in cm
-        self._max_speed = 0.1  # Standard in m/s
+        self._max_speed = 0  # Standard in m/s
         self._target_distance_lock = threading.Lock()
         self._max_speed_lock = threading.Lock()
         
@@ -144,14 +146,22 @@ class FollowActionServer(Node):
         while rclpy.ok() and not state_machine.follow_done:
             if state_machine.id == -1:
                 time_now = time.time()
-                self.get_logger().info("Roboter nicht gefunden. Warte 30sek. Danach abbruch")
+                self.get_logger().info("Keine Marker erkannt. Warte 20sek.")
                 self._stop_robot()
-                if (time_now - aruco_last_seen) > 30:
-                    self.get_logger().info("Keinen 69er Marker gefunden. Abbruch!")
+                if (time_now - aruco_last_seen) > 20:
+                    self.get_logger().error("\n69 oder 0 nicht gefunden.\nAnnahme: Sehe anderen Robo von vorn\nBreche ab!")
                     goal_handle.abort()
                     result = Follow.Result()
                     result.reached = False
                     return result
+            elif state_machine.id == 0:
+                time_now = time.time()
+                self.get_logger().info("Erkenne Marker 0. Warte 20sek.")
+                self._stop_robot()
+                if (time_now - aruco_last_seen) > 20:
+                    state_machine.follow_done = True
+                    self.get_logger().info("Keinen Robo erkannt. Beende Follow erfolgreich.")
+                    continue
             else:
                 aruco_last_seen = time.time()
           
@@ -199,6 +209,7 @@ class FollowActionServer(Node):
         else:
             result = Follow.Result()
             result.reached = False
+            self.get_logger().info('Follow action failed')
             return result
 
     def _stop_robot(self):
@@ -207,7 +218,6 @@ class FollowActionServer(Node):
         stop_cmd.linear.x = 0.0
         stop_cmd.angular.z = 0.0
         self.publisher.publish(stop_cmd)
-        self.get_logger().info("Roboter gestoppt")
 
         
 def main():

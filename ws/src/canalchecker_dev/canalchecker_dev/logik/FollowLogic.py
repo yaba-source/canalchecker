@@ -1,5 +1,7 @@
 import math
 
+KP_ANGULAR = 2
+
 class FollowStateMachine:
     def __init__(self, logger=None):
         self.state = 10
@@ -12,11 +14,10 @@ class FollowStateMachine:
         self.id_to_follow = 69
         self.kp_angular = 1.1
         self.align_angular_speed = 0.05
-        self.angle_tolerance = 2
+        self.angle_tolerance = 3
         self.linear_speed = 0.0   
         self.angular_speed = 0.0
         self.marker_lost_counter = 0
-        
        
         self.distance_to_robot = 0.5  
         self.target_distance = 50.0   
@@ -28,10 +29,9 @@ class FollowStateMachine:
         self.robot_found = True
 
     
-    
     def pcontroller_angular(self, error_rad):
         """P-Regler mit progressiver Geschwindigkeit"""
-        control = self.kp_angular * error_rad 
+        control = KP_ANGULAR * error_rad 
         max_speed = self.align_angular_speed
         if control > max_speed:
             control = max_speed
@@ -39,17 +39,6 @@ class FollowStateMachine:
             control = -max_speed
 
         return -control
-    
-    def pcontroller_linear(self, error_dist):
-        """P-Regler für lineare Geschwindigkeit"""
-        control = self.kp_linear * error_dist
-        
-        # Begrenzung auf max_speed statt max_linear_speed
-        if control > self.max_speed:
-            control = self.max_speed
-        elif control < 0:
-            control = 0.0  
-        return control
     
     def setSpeedPara(self, linear, angular):
         self.linear_speed = linear
@@ -59,6 +48,9 @@ class FollowStateMachine:
         
         self.distance_to_robot = self.target_distance / 100.0
         
+        if self.distance < self.distance_to_robot:
+            self.linear_speed = 0.0
+            return
         match self.state:
             case 10:  
                 if self.logger:
@@ -79,18 +71,11 @@ class FollowStateMachine:
 
                     angle_rad = math.radians(self.angle)
                     self.angular_speed = self.pcontroller_angular(angle_rad)
+                    self.linear_speed = self.max_speed
 
-                    distance_error = self.distance - self.distance_to_robot
-                    self.linear_speed = self.pcontroller_linear(distance_error)
-                    
                 else:
-                    self.marker_lost_counter += 1
-                    if self.marker_lost_counter > 5:
-                        self.state = 30
-                        if self.logger:
-                            self.logger.info("Roboter verloren, suche erneut.")
-
-
+                    self.logger.info("Roboter verloren, suche erneut.")
+                    self.linear_speed = 0.0
             case 30:
                 if self.logger:
                     self.logger.info("State 30: Kein Roboter vorhanden, fahre mit Align fort")

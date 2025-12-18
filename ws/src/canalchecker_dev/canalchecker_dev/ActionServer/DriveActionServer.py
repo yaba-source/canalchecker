@@ -12,6 +12,7 @@ import threading
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Float32
 
 class DriveActionServer(Node):
     def __init__(self):
@@ -40,6 +41,13 @@ class DriveActionServer(Node):
             10
         )
 
+        self.sub_max_speed = self.create_subscription(
+            Float32,
+            '/max_speed',
+            self.max_speed_callback_fnc,
+            10
+        )
+
         self.sub_aruco = self.create_subscription(
             ArucoDetection,
             '/aruco_detections',
@@ -47,10 +55,14 @@ class DriveActionServer(Node):
             10
         )
 
+        self.max_speed = 0
+        self.max_speed_lock = threading.Lock()
+
         self.aruco_dist = 0
         self.aruco_angle = 0
         self.aruco_id = -1
         self.aruco_lock = threading.Lock()
+
         self.cmd = Twist()
         self.cmd.linear.x = 0.0
         self.cmd.angular.z = 0.0
@@ -61,7 +73,7 @@ class DriveActionServer(Node):
         return GoalResponse.ACCEPT
 
     def cancel_callback_fnc(self, goal_handle):
-        self.get_logger().info('Follow goal cancel requested')
+        self.get_logger().info('Drive goal cancel requested')
         return CancelResponse.ACCEPT
 
     def aruco_callback_fnc(self, msg: ArucoDetection):
@@ -71,8 +83,21 @@ class DriveActionServer(Node):
             self.aruco_id = msg.aruco_id
 
     def listener_callback_fnc(self, msg: Odometry):
-       # self.get_logger().info(f"Pos X: {msg.pose.pose.position.x:.3f} " f"Pos Y: {msg.pose.pose.position.y:.3f}")     
-       pass   
+        # self.get_logger().info(f"Pos X: {msg.pose.pose.position.x:.3f} " f"Pos Y: {msg.pose.pose.position.y:.3f}")     
+        pass   
+
+    def max_speed_callback_fnc(self, msg: Float32):
+        speed = msg.data
+
+        if speed < 0.0:
+            speed = 0.0
+            self.get_logger().warn(f"Geschwindigkeit < 0! Setze auf 0.0 m/s")
+        elif speed > 0.2:
+            speed = 0.2
+            self.get_logger().warn(f"Geschwindigkeit > 0.2! Begrenze auf 0.2 m/s")
+        
+        with self.max_speed_lock:
+            self.max_speed = speed
 
     def execute_callback_fnc(self, goal_handle):
         """
