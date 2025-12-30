@@ -48,13 +48,13 @@ class ActionServerHandler(Node):
             10
         )
 
-        self.publisher_speed = self.create_publisher(
+        self.publisher_speed = self.create_publisher(# raus nehmen
             Float32,
             '/max_speed',
             10
         )
 
-        self.publisher_distance = self.create_publisher(
+        self.publisher_distance = self.create_publisher(#raus nehmen
             Float32,
             '/target_distance',
             10
@@ -309,7 +309,7 @@ class ActionServerHandler(Node):
         
         match self.current_action:
             case 'align':
-                self.get_logger().info(f'Align Feedback' )
+                self.get_logger().info(f'Align Feedback:{feedback}' )
         
             case 'drive':
                 self.get_logger().info(f'Drive Feedback: {feedback}')
