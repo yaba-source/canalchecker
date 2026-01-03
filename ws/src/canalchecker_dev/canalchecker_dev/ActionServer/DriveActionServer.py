@@ -1,12 +1,11 @@
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
-from rclpy.action import ActionServer
+from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from rclpy.node import Node
 from canalchecker_interface.action import Drive
 from canalchecker_interface.msg import ArucoDetection
 from canalchecker_dev.logik.DriveLogic import DriveStateMachine
 from rclpy.callback_groups import ReentrantCallbackGroup
-from rclpy.action import ActionServer, GoalResponse, CancelResponse
 import time
 import threading
 
@@ -14,9 +13,11 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32
 
+
 class DriveActionServer(Node):
     def __init__(self):
         super().__init__('drive_action_server')
+        
         self.action_server = ActionServer(
             self,
             Drive,
@@ -26,13 +27,10 @@ class DriveActionServer(Node):
             cancel_callback=self.cancel_callback_fnc,
             callback_group=ReentrantCallbackGroup()
         )
+        
         self.goal_handle = None
 
-        self.publisher = self.create_publisher(
-            Twist,
-            '/cmd_vel',
-            10
-        )
+        self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
 
         self.sub_odom = self.create_subscription(
             Odometry,
@@ -54,22 +52,26 @@ class DriveActionServer(Node):
             self.aruco_callback_fnc,
             10
         )
-
-        self.max_speed = 0
+        self.linear_speed = 0.0  
+        self.angular_speed = 0.0  
+        self.max_speed = 0.1
         self.max_speed_lock = threading.Lock()
 
-        self.aruco_dist = 0
-        self.aruco_angle = 0
+        self.aruco_dist = 0.0
+        self.aruco_angle = 0.0
         self.aruco_id = -1
         self.aruco_lock = threading.Lock()
 
         self.cmd = Twist()
         self.cmd.linear.x = 0.0
         self.cmd.angular.z = 0.0
+        
+        self.get_logger().info('Drive Action Server initialized')
 
-   
     def goal_callback_fnc(self, goal_request):
-        self.get_logger().info('Goal received')
+        self.get_logger().info('★★★ Drive Goal EMPFANGEN')
+        with self.max_speed_lock:
+            self.max_speed = goal_request.max_speed
         return GoalResponse.ACCEPT
 
     def cancel_callback_fnc(self, goal_handle):
@@ -83,109 +85,109 @@ class DriveActionServer(Node):
             self.aruco_id = msg.aruco_id
 
     def listener_callback_fnc(self, msg: Odometry):
-        # self.get_logger().info(f"Pos X: {msg.pose.pose.position.x:.3f} " f"Pos Y: {msg.pose.pose.position.y:.3f}")     
-        pass   
+        pass
 
     def max_speed_callback_fnc(self, msg: Float32):
         speed = msg.data
 
         if speed < 0.0:
             speed = 0.0
-            self.get_logger().warn(f"Geschwindigkeit < 0! Setze auf 0.0 m/s")
+            self.get_logger().warn("Geschwindigkeit < 0! Setze auf 0.0 m/s")
         elif speed > 0.2:
             speed = 0.2
-            self.get_logger().warn(f"Geschwindigkeit > 0.2! Begrenze auf 0.2 m/s")
+            self.get_logger().warn("Geschwindigkeit > 0.2! Begrenze auf 0.2 m/s")
         
         with self.max_speed_lock:
             self.max_speed = speed
 
     def execute_callback_fnc(self, goal_handle):
-        """
-        ## Description
-        Hauptfunktion des ActionServers. Gibt zuerst die subscribten daten an die Statemachine weiter. Ist die Aruco ID -1 wird angehalten, ansonsten gefahren.
-        Sollte das Goal gecancelled werden wird hiernach auch hier geprüft. Sollte dies nicht zutreffen wird die Statemachine geexecuted.
-        Zuletzt wird auf '/cmd_vel' gepublisht und feedback an den handler gesendet.
-
-        Sollte man die 'debugging_function' noch finden, habe ich vergessen diese zu entfernen. (**Schere**)
-
-        :param goal_handle: Goal handle welcher dem Server vom Handler übergeben wird.
-        :type goal_handle: goal_handle
-        :return result: Result welches im Interface definiert ist
-        """
-
-        self.get_logger().info('Goal Received! Driving.')
+        """Hauptfunktion des Drive Action Servers"""
+        self.get_logger().info('Drive EXECUTE gestartet!')
         self.goal_handle = goal_handle
-        self.goal_finished = False
-        self.goal_result = None
         
+        # OHNE logger Parameter
         state = DriveStateMachine()
+        
+        # Max Speed setzen
+        with self.max_speed_lock:
+            state.max_linear_speed = self.max_speed
+        
+        rate = self.create_rate(30)
+        
         while rclpy.ok() and not state.drive_complete:
-            state.id = self.aruco_id
-            state.angle = self.aruco_angle
-            state.distance = self.aruco_dist
-            if self.aruco_id == -1:
-                self.get_logger().warning('No Aruco found. Stopping drive.')
-                self.stop_robot()
-                self.debugging_function(float(self.cmd.linear.x), float(self.cmd.linear.z), float(self.aruco_dist), float(state.distance))
-            else:
-                self.get_logger().info(f'\nAruco Marker found {self.aruco_id}.\nDistance: {self.aruco_dist}\nAngle: {self.aruco_angle}')
-                self.cmd.linear.x = state.max_linear_speed
-                self.debugging_function(float(self.cmd.linear.x), float(self.cmd.linear.z), float(self.aruco_dist), float(state.distance))
-            
+            # ERSTE Prüfung: Cancel
             if goal_handle.is_cancel_requested:
-                goal_handle.canceled()
-                result = Drive.Result()
-                result.reached = False
+                self.get_logger().info('Cancel empfangen - beende Drive')
                 self.stop_robot()
-                self.get_logger().info('Goal cancelled. Robot Stopped.')
-                return result
-
-            state.execute()
-            self.publisher.publish(self.cmd)
-
+                goal_handle.canceled()
+                return Drive.Result(reached=False)
+            
+            # Aruco Daten übertragen
+            with self.aruco_lock:
+                state.id = self.aruco_id
+                state.angle = self.aruco_angle
+                state.distance = self.aruco_dist
+            
+            # Max Speed aktualisieren
+            with self.max_speed_lock:
+                state.max_linear_speed = self.max_speed
+            
+            # Prüfung ob Aruco vorhanden
+            if self.aruco_id == -1:
+                self.get_logger().warn('Kein Aruco gefunden - stoppe')
+                self.stop_robot()
+            else:
+                # State Machine ausführen
+                state.execute()
+                
+                # Bewegungskommando senden
+                self.cmd.linear.x = state.linear_speed
+                self.cmd.angular.z = state.angular_speed
+                self.publisher.publish(self.cmd)
+            
+            # Feedback senden
             feedback = Drive.Feedback()
             feedback.dist_to_goal = state.distance
             goal_handle.publish_feedback(feedback)
+            
+            # Rate sleep
+            try:
+                rate.sleep()
+            except:
+                pass
         
+        # Roboter stoppen
         self.stop_robot()
 
+        # Ergebnis zurückgeben
         if state.drive_complete:
             goal_handle.succeed()
-            result = Drive.Result()
-            result.reached = True
-            self.get_logger().info('Drive Complete')
-            return result
+            self.get_logger().info('Drive ERFOLGREICH abgeschlossen')
+            return Drive.Result(reached=True)
         else:
-            result = Drive.Result()
-            result.reached = False
-            self.get_logger().fatal('Drive Failed')
-            return result 
-      
+            self.get_logger().error('Drive FEHLGESCHLAGEN')
+            return Drive.Result(reached=False)
+
+    
     def stop_robot(self):
+        """Stoppt den Roboter"""
         self.cmd = Twist()
         self.cmd.linear.x = 0.0
         self.cmd.angular.z = 0.0
         self.publisher.publish(self.cmd)
-    
-####################### Remove upon final Release ########################
-    def debugging_function(self, linx, angz, topicdist, statedist):
-        print("------------------------------------")
-        print("\nCommanded lin. speed: ", linx)
-        print("Commanded ang. speed: ", angz)
-        print("Topic distance: ", topicdist)
-        print("StateMachine dist: ", statedist, "\n")
-        print("------------------------------------")
-####################### Remove upon final Release ########################
+
 
 def main():
     rclpy.init()
     try:
         drive_action_server = DriveActionServer()
-        multithread_executer = MultiThreadedExecutor()
-        rclpy.spin(drive_action_server,multithread_executer)
+        multithread_executor = MultiThreadedExecutor()
+        rclpy.spin(drive_action_server, multithread_executor)
+    except KeyboardInterrupt:
+        pass
     finally:
-        DriveActionServer.stop_robot()
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

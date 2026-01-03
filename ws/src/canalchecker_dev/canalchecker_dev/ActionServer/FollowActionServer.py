@@ -12,7 +12,7 @@ from std_msgs.msg import Float32
 import threading
 from geometry_msgs.msg import Twist
 
-ARUC69_CORRECTION_FACTOR=0.479  # Korrekturfaktor, da der Marker 69 um 54% kleiner als marker 0 ist
+
 
 class FollowActionServer(Node):
     def __init__(self):
@@ -28,17 +28,13 @@ class FollowActionServer(Node):
         self._aruco_lock = threading.Lock()
         
         # Ziel-Distanz und Max-Geschwindigkeit aus Topics
-        self._target_distance = 50.0  # Standard in cm
-        self._max_speed = 0  # Standard in m/s
+        self._target_distance = 50.0
+        self._max_speed = 0
         self._target_distance_lock = threading.Lock()
         self._max_speed_lock = threading.Lock()
         
         # Publisher für Roboter-Bewegung
-        self.publisher = self.create_publisher(
-            Twist,
-            '/cmd_vel',
-            10
-        )
+        self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         
         # Aruco Detection Subscription
         self.sub_aruco = self.create_subscription(
@@ -77,10 +73,9 @@ class FollowActionServer(Node):
     def goal_callback_fnc(self, goal_request):
         """Akzeptiert Goal und übernimmt Parameter"""
         self.get_logger().info(
-            f'Follow goal received: target_distance={goal_request.target_distance}cm, '
+            f'★★★ Follow goal EMPFANGEN: target_distance={goal_request.target_distance}cm, '
             f'max_speed={goal_request.max_speed}m/s'
         )
-        
         
         with self._target_distance_lock:
             self._target_distance = goal_request.target_distance
@@ -98,7 +93,7 @@ class FollowActionServer(Node):
         """Callback für Aruco Detection Daten"""
         with self._aruco_lock:
             self._aruco_id = msg.aruco_id
-            self._aruco_distance = (msg.aruco_distance)# Aruco detection factor rausgenommen und im Detector angepasst
+            self._aruco_distance = msg.aruco_distance
             self._aruco_angle = msg.aruco_angle
 
     def target_distance_callback(self, msg: Float32):
@@ -128,89 +123,82 @@ class FollowActionServer(Node):
         """Thread-safe Zugriff auf Max-Geschwindigkeit"""
         with self._max_speed_lock:
             return self._max_speed
-
+    
     def execute_callback_fnc(self, goal_handle):
         """Hauptschleife für Follow Action"""
-        self.get_logger().info('Executing follow action')
+        self.get_logger().info('★★★ EXECUTE_CALLBACK gestartet!')
 
-        
         state_machine = FollowStateMachine(logger=self.get_logger())
         
-        # Ziel-Distanz und Max-Geschwindigkeit in State Machine setzen
         state_machine.target_distance = self.get_target_distance()
         state_machine.max_speed = self.get_max_speed()
         
         rate = self.create_rate(30)
         aruco_last_seen = time.time()
+        no_marker_start = None
         
         while rclpy.ok() and not state_machine.follow_done:
-            if state_machine.id == -1:
-                time_now = time.time()
-                self.get_logger().info("Keine Marker erkannt. Warte 20sek.")
-                self._stop_robot()
-                if (time_now - aruco_last_seen) > 20:
-                    self.get_logger().error("\n69 oder 0 nicht gefunden.\nAnnahme: Sehe anderen Robo von vorn\nBreche ab!")
-                    goal_handle.abort()
-                    result = Follow.Result()
-                    result.reached = False
-                    return result
-            elif state_machine.id == 0:
-                time_now = time.time()
-                self.get_logger().info("Erkenne Marker 0. Warte 20sek.")
-                self._stop_robot()
-                if (time_now - aruco_last_seen) > 20:
-                    state_machine.follow_done = True
-                    self.get_logger().info("Keinen Robo erkannt. Beende Follow erfolgreich.")
-                    continue
-            else:
-                aruco_last_seen = time.time()
-          
-            if goal_handle.is_cancel_requested:
-                goal_handle.canceled()
-                self._stop_robot()
-                self.get_logger().info('Goal cancelled')
-                return Follow.Result(reached=False)
             
-            # Aktuelle Aruco Daten in State Machine übertragen mit thread-lock
+            if goal_handle.is_cancel_requested:
+                self.get_logger().info('Cancel empfangen - beende Aktion')
+                self._stop_robot()
+                goal_handle.canceled()
+                return ActionType.Result(reached=False)  # Sauberer Return!
+    
+            
             with self._aruco_lock:
                 state_machine.id = self._aruco_id
                 state_machine.distance = self._aruco_distance
                 state_machine.angle = self._aruco_angle
             
-           
-            state_machine.target_distance = self.get_target_distance()
-            state_machine.max_speed = self.get_max_speed()
+            if state_machine.id == 69:
+                aruco_last_seen = time.time()
+                no_marker_start = None
+                
+                state_machine.target_distance = self.get_target_distance()
+                state_machine.max_speed = self.get_max_speed()
+                state_machine.execute()
+                
+                cmd = Twist()
+                cmd.linear.x = state_machine.linear_speed
+                cmd.angular.z = state_machine.angular_speed
+                self.publisher.publish(cmd)
+                
+            elif state_machine.id == 0:
+                self.get_logger().info("Marker 0 erkannt → Follow beendet")
+                state_machine.follow_done = True
+                break
+                
+            elif state_machine.id == -1:
+                if no_marker_start is None:
+                    no_marker_start = time.time()
+                
+                time_elapsed = time.time() - no_marker_start
+                self._stop_robot()
+                
+                if time_elapsed > 20.0:
+                    self.get_logger().error("20 Sekunden ohne Marker → Abbruch")
+                    goal_handle.abort()
+                    return Follow.Result(reached=False)
             
-            # State Machine ausführen
-            state_machine.execute()
+            else:
+                aruco_last_seen = time.time()
+                no_marker_start = None
             
-            # Bewegungskommando senden
-            cmd = Twist()
-            cmd.linear.x = state_machine.linear_speed
-            cmd.angular.z = state_machine.angular_speed
-            self.publisher.publish(cmd)
-
-            # Feedback senden
             feedback = Follow.Feedback()
             feedback.current_distance = self._aruco_distance
             goal_handle.publish_feedback(feedback)
             
             rate.sleep()
         
-        # Follow abgeschlossen
         self._stop_robot()
 
         if state_machine.follow_done:
             goal_handle.succeed()
-            result = Follow.Result()
-            result.reached = True
             self.get_logger().info('Follow action succeeded')
-            return result
+            return Follow.Result(reached=True)
         else:
-            result = Follow.Result()
-            result.reached = False
-            self.get_logger().info('Follow action failed')
-            return result
+            return Follow.Result(reached=False)
 
     def _stop_robot(self):
         """Stoppt den Roboter"""
@@ -219,7 +207,7 @@ class FollowActionServer(Node):
         stop_cmd.angular.z = 0.0
         self.publisher.publish(stop_cmd)
 
-        
+
 def main():
     rclpy.init()
     try:

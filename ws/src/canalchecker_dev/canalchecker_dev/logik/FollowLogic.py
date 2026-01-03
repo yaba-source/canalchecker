@@ -81,7 +81,7 @@ class FollowStateMachine:
                     angle_rad = math.radians(self.angle)
                     self.angular_speed = self.pcontroller_angular(angle_rad)
                     
-                    # Abstandsregelung mit P-Regler
+         
                     distance_error = self.distance - self.distance_to_robot
                     self.linear_speed = self.pcontroller_linear(distance_error)
 

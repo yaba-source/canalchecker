@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
-from rclpy.action import ActionServer, GoalResponse
+from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from rclpy.node import Node
 from canalchecker_interface.action import Align
 from canalchecker_dev.logik.AlignLogic import AlignStateMachine
@@ -12,17 +12,6 @@ import time
 import threading
 from geometry_msgs.msg import Twist
 
-
-def quaternion_to_yaw(q):
-    """
-    def 
-    q: ein Objekt mit x, y, z, w 
-    Rückgabe: yaw in Radiant
-    """
-    siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
-    cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
-    yaw = math.atan2(siny_cosp, cosy_cosp)
-    return yaw
 
 
 class AlignActionServer(Node):
@@ -67,7 +56,8 @@ class AlignActionServer(Node):
             'align',
             execute_callback=self.execute_callback_fnc,
             callback_group=ReentrantCallbackGroup(),
-            goal_callback=self.goal_callback
+            goal_callback=self.goal_callback,
+            cancel_callback=self.cancel_callback
         )
         
         self.get_logger().info('Align Action Server initialized')
@@ -104,68 +94,77 @@ class AlignActionServer(Node):
         """Thread-safe Zugriff auf Max-Geschwindigkeit"""
         with self._max_speed_lock:
             return self._max_speed
+
+    def cancel_callback(self, cancel_request):
+        """Akzeptiert Cancel-Requests vom Client"""
+        self.get_logger().info('Cancel request received - accepting')
+        return CancelResponse.ACCEPT  # Wichtig: Explizit akzeptieren
     
     def execute_callback_fnc(self, goal_handle):
         """Hauptschleife für Align Action"""
         self.get_logger().info('Executing alignment')
         
-    
         state_machine = AlignStateMachine(logger=self.get_logger())
         state_machine.max_speed = self.get_max_speed()
         
-        rate = self.create_rate(30)  
-        timeout = 60.0  
+        rate = self.create_rate(30)
+        timeout = 60.0
         start_time = time.time()
 
         while rclpy.ok() and not state_machine.align_done:
+            # WICHTIG: Cancel ZUERST prüfen
+            if goal_handle.is_cancel_requested:
+                self.get_logger().info('Goal wurde gecancelt - beende sauber')
+                self._stop_robot()
+                goal_handle.canceled()
+                return Align.Result(reached=False)
+            
+            # Timeout
             if time.time() - start_time > timeout:
                 self.get_logger().error('Alignment timeout')
+                self._stop_robot()
                 goal_handle.abort()
-                self._stop_robot()
                 return Align.Result(reached=False)
             
-            if goal_handle.is_cancel_requested:
-                goal_handle.canceled()
-                self._stop_robot()
-                self.get_logger().info('Goal cancelled')
-                return Align.Result(reached=False)
-            
-            
+            # Aruco Daten
             with self._aruco_lock:
                 state_machine.id = self._aruco_id
                 state_machine.distance = self._aruco_distance
                 state_machine.angle = self._aruco_angle
             
-            
             state_machine.max_speed = self.get_max_speed()
-
-           
             state_machine.execute()
             
-            
+            # Bewegung
             cmd = Twist()
             cmd.linear.x = state_machine.linear_speed
             cmd.angular.z = state_machine.angular_speed
             self.publisher.publish(cmd)
-
             
+            # Feedback
             feedback = Align.Feedback()
+            feedback.angle_to_goal = state_machine.angle
             goal_handle.publish_feedback(feedback)
-
-            rate.sleep() #um roboter nicht zu überfluten
-
+            
+            # Rate sleep mit Try-Catch
+            try:
+                rate.sleep()
+            except Exception as e:
+                # Wenn rate.sleep fehlschlägt, einfach weitermachen
+                self.get_logger().debug(f'Rate sleep error (ignoriert): {e}')
+        
+        # Roboter stoppen
         self._stop_robot()
-
+        
+        # Ergebnis
         if state_machine.align_done:
             goal_handle.succeed()
-            result = Align.Result()
-            result.reached = True
             self.get_logger().info('Alignment succeeded')
-            return result
+            return Align.Result(reached=True)
         else:
-            result = Align.Result()
-            result.reached = False
-            return result
+            self.get_logger().warn('Alignment nicht erreicht')
+            return Align.Result(reached=False)
+
           
         
     def _stop_robot(self):

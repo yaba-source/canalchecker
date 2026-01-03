@@ -2,7 +2,6 @@ import math
 
 KP = 2                  # Reglerverstärkung
 ANGULAR_Z_MAX = 0.2     # Maximale Winkelgeschwindigkeit
-MAX_LINEAR_SPEED = 0.1  # Maximale Lineargeschwindigkeit (wird noch durch pub-sub ersetzt)
 ANGLE_TOLERABLE_ERR = 3 # Tolerierbarer Winkelfehler (Unterhalb diesem wert keine Regelung)
 
 class DriveStateMachine:
@@ -15,11 +14,12 @@ class DriveStateMachine:
         self.state = 1                          # Aktueller State der statemachine
         self.error = None                       # Wahrscheinlich YAGNI
         self.drive_complete = False             # Ziemlich selbsterklärend?
-        self.max_linear_speed = MAX_LINEAR_SPEED# Maximale Lineargeschwindigkeit (wird noch durch pub-sub ersetzt)
         self.id = -1                            # ID des erkannten ArUco markers
         self.distance = 0                       # Distanz in m
         self.angle = 0                          # Winkel in grad
-        self.angular_cmd = 0.0                  # Zu kommandierende Winkelgeschwindigkeit
+        self.angular_speed = 0.0                  # Zu kommandierende Winkelgeschwindigkeit
+        self.linear_speed=0.0  
+        self.max_linear_speed= 0.0            
 
 
     def p_controller(self, target: float, actual: float):
@@ -40,13 +40,13 @@ class DriveStateMachine:
 
         error = target - actual
 
-        self.angular_cmd = -(KP * error)
+        self.angular_speed = (KP * error)
 
-        if self.angular_cmd > ANGULAR_Z_MAX:
-            self.angular_cmd = ANGULAR_Z_MAX
-        elif self.angular_cmd < -ANGULAR_Z_MAX:
-            self.angular_cmd = -ANGULAR_Z_MAX
-
+        if self.angular_speed > ANGULAR_Z_MAX:
+            self.angular_speed = ANGULAR_Z_MAX
+        elif self.angular_speed< -ANGULAR_Z_MAX:
+            self.angular_speed = -ANGULAR_Z_MAX
+        return self.angular_speed
     
     def execute(self):
         """
@@ -60,13 +60,18 @@ class DriveStateMachine:
         """
         match self.state:
             case 1:
-                print('[DEBUG] StateMachine Case 1. Driving')
+            
                 if self.distance < 0.5 and not self.id == -1:
                     self.state = 2
+                    self.linear_speed =0.0
+                    self.angular_speed=0.0
+                else:
+                    self.linear_speed=self.max_linear_speed
                 if abs(self.angle) > ANGLE_TOLERABLE_ERR:
                     self.p_controller(0.0, math.radians(self.angle))
                 elif abs(self.angle) < ANGLE_TOLERABLE_ERR:
-                    self.angular_cmd = 0.0
+                    self.angular_speed = 0.0
             case 2:
-                print('[DEBUG] StateMachine Case 2. Finished')
+    
                 self.drive_complete = True
+                self.linear_speed = 0.0
