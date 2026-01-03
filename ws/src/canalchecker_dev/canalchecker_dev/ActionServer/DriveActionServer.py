@@ -66,16 +66,16 @@ class DriveActionServer(Node):
         self.cmd.linear.x = 0.0
         self.cmd.angular.z = 0.0
         
-        self.get_logger().info('Drive Action Server initialized')
+        # self.get_logger().info('Drive Action Server initialized')
 
     def goal_callback_fnc(self, goal_request):
-        self.get_logger().info('★★★ Drive Goal EMPFANGEN')
+        # self.get_logger().info('★★★ Drive Goal EMPFANGEN')
         with self.max_speed_lock:
             self.max_speed = goal_request.max_speed
         return GoalResponse.ACCEPT
 
     def cancel_callback_fnc(self, goal_handle):
-        self.get_logger().info('Drive goal cancel requested')
+        # self.get_logger().info('Drive goal cancel requested')
         return CancelResponse.ACCEPT
 
     def aruco_callback_fnc(self, msg: ArucoDetection):
@@ -92,17 +92,17 @@ class DriveActionServer(Node):
 
         if speed < 0.0:
             speed = 0.0
-            self.get_logger().warn("Geschwindigkeit < 0! Setze auf 0.0 m/s")
+            # self.get_logger().warn("Geschwindigkeit < 0! Setze auf 0.0 m/s")
         elif speed > 0.2:
             speed = 0.2
-            self.get_logger().warn("Geschwindigkeit > 0.2! Begrenze auf 0.2 m/s")
+            # self.get_logger().warn("Geschwindigkeit > 0.2! Begrenze auf 0.2 m/s")
         
         with self.max_speed_lock:
             self.max_speed = speed
 
     def execute_callback_fnc(self, goal_handle):
         """Hauptfunktion des Drive Action Servers"""
-        self.get_logger().info('Drive EXECUTE gestartet!')
+        # self.get_logger().info('Drive EXECUTE gestartet!')
         self.goal_handle = goal_handle
         
         # OHNE logger Parameter
@@ -117,7 +117,7 @@ class DriveActionServer(Node):
         while rclpy.ok() and not state.drive_complete:
             # ERSTE Prüfung: Cancel
             if goal_handle.is_cancel_requested:
-                self.get_logger().info('Cancel empfangen - beende Drive')
+                # self.get_logger().info('Cancel empfangen - beende Drive')
                 self.stop_robot()
                 goal_handle.canceled()
                 return Drive.Result(reached=False)
@@ -134,7 +134,7 @@ class DriveActionServer(Node):
             
             # Prüfung ob Aruco vorhanden
             if self.aruco_id == -1:
-                self.get_logger().warn('Kein Aruco gefunden - stoppe')
+                # self.get_logger().warn('Kein Aruco gefunden - stoppe')
                 self.stop_robot()
             else:
                 # State Machine ausführen
@@ -162,10 +162,10 @@ class DriveActionServer(Node):
         # Ergebnis zurückgeben
         if state.drive_complete:
             goal_handle.succeed()
-            self.get_logger().info('Drive ERFOLGREICH abgeschlossen')
+            # self.get_logger().info('Drive ERFOLGREICH abgeschlossen')
             return Drive.Result(reached=True)
         else:
-            self.get_logger().error('Drive FEHLGESCHLAGEN')
+            # self.get_logger().error('Drive FEHLGESCHLAGEN')
             return Drive.Result(reached=False)
 
     

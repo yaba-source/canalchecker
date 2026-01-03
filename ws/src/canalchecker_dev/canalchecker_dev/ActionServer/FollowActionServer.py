@@ -68,14 +68,14 @@ class FollowActionServer(Node):
             callback_group=ReentrantCallbackGroup()
         )
         
-        self.get_logger().info('Follow Action Server initialized')
+        # self.get_logger().info('Follow Action Server initialized')
 
     def goal_callback_fnc(self, goal_request):
         """Akzeptiert Goal und übernimmt Parameter"""
-        self.get_logger().info(
-            f'★★★ Follow goal EMPFANGEN: target_distance={goal_request.target_distance}cm, '
-            f'max_speed={goal_request.max_speed}m/s'
-        )
+        # self.get_logger().info(
+        #     f'★★★ Follow goal EMPFANGEN: target_distance={goal_request.target_distance}cm, '
+        #     f'max_speed={goal_request.max_speed}m/s'
+        # )
         
         with self._target_distance_lock:
             self._target_distance = goal_request.target_distance
@@ -86,7 +86,7 @@ class FollowActionServer(Node):
         return GoalResponse.ACCEPT
 
     def cancel_callback_fnc(self, goal_handle):
-        self.get_logger().info('Follow goal cancel requested')
+        # self.get_logger().info('Follow goal cancel requested')
         return CancelResponse.ACCEPT
     
     def aruco_callback_fnc(self, msg: ArucoDetection):
@@ -100,7 +100,7 @@ class FollowActionServer(Node):
         """Callback für dynamische Ziel-Distanz Änderung"""
         with self._target_distance_lock:
             self._target_distance = msg.data
-        self.get_logger().info(f"Neue Ziel-Distanz: {msg.data:.1f} cm")
+        # self.get_logger().info(f"Neue Ziel-Distanz: {msg.data:.1f} cm")
 
     def max_speed_callback(self, msg: Float32):
         """Callback für dynamische Geschwindigkeits-Änderung"""
@@ -112,7 +112,7 @@ class FollowActionServer(Node):
         
         with self._max_speed_lock:
             self._max_speed = speed
-        self.get_logger().info(f"Neue Max-Geschwindigkeit: {speed:.3f} m/s")
+        # self.get_logger().info(f"Neue Max-Geschwindigkeit: {speed:.3f} m/s")
 
     def get_target_distance(self):
         """Thread-safe Zugriff auf Ziel-Distanz"""
@@ -126,7 +126,7 @@ class FollowActionServer(Node):
     
     def execute_callback_fnc(self, goal_handle):
         """Hauptschleife für Follow Action"""
-        self.get_logger().info('★★★ EXECUTE_CALLBACK gestartet!')
+        # self.get_logger().info('★★★ EXECUTE_CALLBACK gestartet!')
 
         state_machine = FollowStateMachine(logger=self.get_logger())
         
@@ -140,7 +140,7 @@ class FollowActionServer(Node):
         while rclpy.ok() and not state_machine.follow_done:
             
             if goal_handle.is_cancel_requested:
-                self.get_logger().info('Cancel empfangen - beende Aktion')
+                # self.get_logger().info('Cancel empfangen - beende Aktion')
                 self._stop_robot()
                 goal_handle.canceled()
                 return ActionType.Result(reached=False)  # Sauberer Return!
@@ -165,7 +165,7 @@ class FollowActionServer(Node):
                 self.publisher.publish(cmd)
                 
             elif state_machine.id == 0:
-                self.get_logger().info("Marker 0 erkannt → Follow beendet")
+                # self.get_logger().info("Marker 0 erkannt → Follow beendet")
                 state_machine.follow_done = True
                 break
                 
@@ -177,7 +177,7 @@ class FollowActionServer(Node):
                 self._stop_robot()
                 
                 if time_elapsed > 20.0:
-                    self.get_logger().error("20 Sekunden ohne Marker → Abbruch")
+                    # self.get_logger().error("20 Sekunden ohne Marker → Abbruch")
                     goal_handle.abort()
                     return Follow.Result(reached=False)
             
@@ -195,7 +195,7 @@ class FollowActionServer(Node):
 
         if state_machine.follow_done:
             goal_handle.succeed()
-            self.get_logger().info('Follow action succeeded')
+            # self.get_logger().info('Follow action succeeded')
             return Follow.Result(reached=True)
         else:
             return Follow.Result(reached=False)

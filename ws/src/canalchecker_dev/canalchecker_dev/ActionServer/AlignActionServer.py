@@ -60,19 +60,17 @@ class AlignActionServer(Node):
             cancel_callback=self.cancel_callback
         )
         
-        self.get_logger().info('Align Action Server initialized')
-
-        
+        # self.get_logger().info('Align Action Server initialized')
 
     def goal_callback(self, goal_request):
         """Callback wenn Goal ankommt"""
-        self.get_logger().info('Goal received')
-        self.get_logger().info(f'Goal attributes: {dir(goal_request)}')
+        # self.get_logger().info('Goal received')
+        # self.get_logger().info(f'Goal attributes: {dir(goal_request)}')
         return GoalResponse.ACCEPT
     
     def aruco_callback_fnc(self, msg: ArucoDetection):
-        """CustomMessage mit Aruco Detection Daten"""
-        self.get_logger().info(f"ArUco empfangen: ID={msg.aruco_id}, dist={msg.aruco_distance}, angle={msg.aruco_angle}")
+        """Callback für Aruco Detection Daten"""
+        # self.get_logger().info(f"ArUco empfangen: ID={msg.aruco_id}, dist={msg.aruco_distance}, angle={msg.aruco_angle}")
         with self._aruco_lock:
             self._aruco_id = msg.aruco_id
             self._aruco_distance = msg.aruco_distance
@@ -88,7 +86,7 @@ class AlignActionServer(Node):
 
         with self._max_speed_lock:
             self._max_speed = speed
-        self.get_logger().info(f"Neue Max-Geschwindigkeit: {speed:.3f} m/s")
+        # self.get_logger().info(f"Neue Max-Geschwindigkeit: {speed:.3f} m/s")
     
     def get_max_speed(self):
         """Thread-safe Zugriff auf Max-Geschwindigkeit"""
@@ -97,12 +95,12 @@ class AlignActionServer(Node):
 
     def cancel_callback(self, cancel_request):
         """Akzeptiert Cancel-Requests vom Client"""
-        self.get_logger().info('Cancel request received - accepting')
+        # self.get_logger().info('Cancel request received - accepting')
         return CancelResponse.ACCEPT  # Wichtig: Explizit akzeptieren
     
     def execute_callback_fnc(self, goal_handle):
         """Hauptschleife für Align Action"""
-        self.get_logger().info('Executing alignment')
+        # self.get_logger().info('Executing alignment')
         
         state_machine = AlignStateMachine(logger=self.get_logger())
         state_machine.max_speed = self.get_max_speed()
@@ -114,14 +112,14 @@ class AlignActionServer(Node):
         while rclpy.ok() and not state_machine.align_done:
             # WICHTIG: Cancel ZUERST prüfen
             if goal_handle.is_cancel_requested:
-                self.get_logger().info('Goal wurde gecancelt - beende sauber')
+                # self.get_logger().info('Goal wurde gecancelt - beende sauber')
                 self._stop_robot()
                 goal_handle.canceled()
                 return Align.Result(reached=False)
             
             # Timeout
             if time.time() - start_time > timeout:
-                self.get_logger().error('Alignment timeout')
+                # self.get_logger().error('Alignment timeout')
                 self._stop_robot()
                 goal_handle.abort()
                 return Align.Result(reached=False)
@@ -150,19 +148,18 @@ class AlignActionServer(Node):
             try:
                 rate.sleep()
             except Exception as e:
-                # Wenn rate.sleep fehlschlägt, einfach weitermachen
-                self.get_logger().debug(f'Rate sleep error (ignoriert): {e}')
+                # self.get_logger().debug(f'Rate sleep error (ignoriert): {e}')
         
-        # Roboter stoppen
-        self._stop_robot()
-        
+            # Roboter stoppen
+                self._stop_robot()
+            
         # Ergebnis
         if state_machine.align_done:
             goal_handle.succeed()
-            self.get_logger().info('Alignment succeeded')
+            # self.get_logger().info('Alignment succeeded')
             return Align.Result(reached=True)
         else:
-            self.get_logger().warn('Alignment nicht erreicht')
+            # self.get_logger().warn('Alignment nicht erreicht')
             return Align.Result(reached=False)
 
           
