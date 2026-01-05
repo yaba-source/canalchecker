@@ -279,77 +279,12 @@ START
   │     │   └─► Publish Twist auf /cmd_vel
   │     └─► Return Follow.Result()
   │
-  └─► Follow beendet → Nächste Mission
+  └─► Follow beendet → Nächste Mission z.B. Marker 0 
 ```
 
-### Beispielsequenz: Follow Marker 69
 
-**Zeitpunkt 0s**: Marker 69 erkannt (z.B. bei 1.5m Abstand, 30° Winkel)
-```
-aruco_callback() aufgerufen
-  → _aruco_id = 69
-  → _follow_triggered = True
-  → _trigger_follow_mode()
-    → current_action = "align" (wird abgebrochen)
-    → cancel_goal_async()
-    → (warte auf Cancel-Callback)
-    → _start_follow()
-      → send_goal('follow', Follow.Goal())
-```
 
-**Zeitpunkt 0.5s**: FollowActionServer gestartet
-```
-FollowStateMachine initialisiert (State 10)
-Loop startet (30 Hz = 33ms pro Iteration)
-```
 
-**Iteration 1 (t=0.5s)**:
-```
-Aruco-Daten: id=69, distance=1.5m, angle=30°
-State 10: Marker erkannt → Übergang zu State 20
-```
-
-**Iteration 2-N (t=0.53s+)**:
-```
-State 20 (Follow):
-  angle_rad = 30° → 0.524 rad
-  angular_speed = pcontroller_angular(0.524)
-                = -KP * 0.524
-                = -2 * 0.524 = -1.048
-                → begrenzt auf -0.05 (dreht nach links)
-  
-  distance_error = 1.5 - 0.5 = 1.0m
-  linear_speed = pcontroller_linear(1.0)
-               = 0.2 * 1.0 = 0.2 m/s
-  
-  Publish: Twist(linear.x=0.2, angular.z=-0.05)
-```
-
-**Iteration N+1**: Marker auf 15°
-```
-angular_speed = -0.05 * (15° / 30°) = -0.025
-```
-
-**Iteration N+2**: Marker auf 0° (ausgerichtet)
-```
-angular_speed = -0.0 m/s (korrekt ausgerichtet)
-distance = 0.65m (näher gekommen)
-linear_speed = 0.2 * (0.65 - 0.5) = 0.03 m/s
-```
-
-**Iteration N+3**: Marker auf -5° (leicht zu weit gedreht)
-```
-angular_speed = -(-0.05 * (5°/30°)) = 0.0083 (korrigiert)
-```
-
-**Nach ~30 Iterationen** (1 Sekunde): 
-```
-Abstand ≈ 0.5m (Zielabstand erreicht)
-Winkel ≈ 0° (ausgerichtet)
-follow_done bleibt False bis Marker 0 erkannt
-```
-
----
 
 ### Konfigurierbare Parameter
 
