@@ -1,6 +1,0 @@
-source;share/action_mover_server/hook/pythonpath.ps1
-source;share/action_mover_server/hook/pythonpath.dsv
-source;share/action_mover_server/hook/pythonpath.sh
-source;share/action_mover_server/hook/ament_prefix_path.ps1
-source;share/action_mover_server/hook/ament_prefix_path.dsv
-source;share/action_mover_server/hook/ament_prefix_path.sh

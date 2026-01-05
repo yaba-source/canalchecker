@@ -1,5 +1,0 @@
-geometry_msgs/Pose2D pose
----
-bool reached
----
-float32 dist_to_goal
