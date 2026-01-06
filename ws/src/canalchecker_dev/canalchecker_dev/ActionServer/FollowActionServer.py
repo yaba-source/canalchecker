@@ -73,7 +73,7 @@ class FollowActionServer(Node):
     def goal_callback_fnc(self, goal_request):
         """Akzeptiert Goal und übernimmt Parameter"""
         # self.get_logger().info(
-        #     f'★★★ Follow goal EMPFANGEN: target_distance={goal_request.target_distance}cm, '
+        #     f'Follow goal EMPFANGEN: target_distance={goal_request.target_distance}cm, '
         #     f'max_speed={goal_request.max_speed}m/s'
         # )
         

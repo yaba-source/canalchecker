@@ -12,7 +12,7 @@ class AlignStateMachine:
         self.id_to_turn = 0
         self.kp_angular = 1.1
         self.align_angular_speed = 0.05
-        self.search_angular_speed = 0.2
+        self.search_angular_speed = self.max_speed
         self.angle_tolerance = 3
         self.linear_speed = 0.0   
         self.angular_speed = 0.0

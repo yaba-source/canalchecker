@@ -39,7 +39,7 @@ class AlignActionServer(Node):
         self.sub_aruco = self.create_subscription(
             ArucoDetection,
             '/aruco_detections',
-            self.aruco_callback_fnc,
+            self.aruco_callback,
             10)
         
         # Subscriber für Max Speed
@@ -54,7 +54,7 @@ class AlignActionServer(Node):
             self,
             Align,
             'align',
-            execute_callback=self.execute_callback_fnc,
+            execute_callback=self.execute_callback,
             callback_group=ReentrantCallbackGroup(),
             goal_callback=self.goal_callback,
             cancel_callback=self.cancel_callback
@@ -68,7 +68,7 @@ class AlignActionServer(Node):
         # self.get_logger().info(f'Goal attributes: {dir(goal_request)}')
         return GoalResponse.ACCEPT
     
-    def aruco_callback_fnc(self, msg: ArucoDetection):
+    def aruco_callback(self, msg: ArucoDetection):
         """Callback für Aruco Detection Daten"""
         # self.get_logger().info(f"ArUco empfangen: ID={msg.aruco_id}, dist={msg.aruco_distance}, angle={msg.aruco_angle}")
         with self._aruco_lock:
@@ -96,9 +96,9 @@ class AlignActionServer(Node):
     def cancel_callback(self, cancel_request):
         """Akzeptiert Cancel-Requests vom Client"""
         # self.get_logger().info('Cancel request received - accepting')
-        return CancelResponse.ACCEPT  # Wichtig: Explizit akzeptieren
-    
-    def execute_callback_fnc(self, goal_handle):
+        return CancelResponse.ACCEPT 
+        
+    def execute_callback(self, goal_handle):
         """Hauptschleife für Align Action"""
         # self.get_logger().info('Executing alignment')
         
