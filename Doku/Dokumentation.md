@@ -197,29 +197,186 @@ Beide folgen ähnlichem Muster mit State Machines, verwenden aber unterschiedlic
 
 ## Machine Vision
 
-### ArucoMarkerDetector
+### ArUco-Marker Erkennung - Tiefgreifende Erklärung
 
-Zweck: Aruco-Marker erkennen und Pose schätzen
+#### Grundkonzept
 
-Der ArucoMarkerDetector verwaltet verschiedene Marker-Größen basierend auf der Marker-ID. Der Marker mit ID 0 hat eine Größe von 175mm (großer Marker), während der Marker mit ID 69 eine Größe von 75mm (kleiner Marker) aufweist.
+ArUco (Augmented Reality University of Cordoba) ist ein Open-Source Bibliothek zur Erkennung von fiduziellen Markern. Ein ArUco-Marker ist ein quadratisches Muster mit einem einzigartigen binären Code, der eine ID enthält. Das System nutzt diese Marker für:
 
-Die detect_markers Methode führt die OpenCV ArUco Detection durch und gibt zurück, ob Marker erkannt wurden. Die estimate_pose Methode führt folgende Schritte durch:
+- **Positionsbestimmung**: Genaue 3D-Pose des Markers relativ zur Kamera
+- **Orientierungserkennung**: Winkel und Ausrichtung des Markers
+- **Zielidentifizierung**: Unterschiedliche Marker-IDs für verschiedene Aufgaben
 
-1. Für jeden erkannten Marker wird die korrekte Größe basierend auf der ID ermittelt
-2. Es werden 3D-Objektpunkte basierend auf der Markergröße erstellt
-3. Die 2D-Bildpunkte des Markers werden extrahiert
-4. Das PnP-Problem (Perspective-n-Point) wird gelöst um die Pose zu schätzen
-5. Der Abstand und Winkel zum Marker werden berechnet
+#### Marker-Typen im System
 
-Output: Die Methode liefert Listen mit Abständen und Winkeln zu den erkannten Markern.
+Das System verwendet zwei verschiedene Marker mit unterschiedlichen Größen und Bedeutungen:
+
+Marker ID 0 (Großer Marker):
+- Größe: 175 mm x 175 mm
+- Bedeutung: Zielpunkt - markiert das Endziel der Navigation
+- Anwendung: Wird erkannt um zu signalisieren, dass die Follow-Mission abgeschlossen ist
+- Erkennungsbereich: Weiter entfernt erkennbar wegen größerer Fläche
+
+Marker ID 69 (Kleiner Marker):
+- Größe: 75 mm x 75 mm
+- Bedeutung: Trigger-Marker - startet den Follow-Modus
+- Anwendung: Wird erkannt um automatisch von Align zu Follow zu wechseln
+- Erkennungsbereich: Näher bei der Kamera, präzisere lokale Verfolgung
+
+Die unterschiedlichen Größen ermöglichen es dem System, verschiedene Aufgaben zu unterscheiden. Der große Marker 0 dient als Endziel, während der kleine Marker 69 als aktives Navigationsziel dient.
+
+#### Detection-Pipeline (detect_markers Methode)
+
+Die Marker-Erkennung erfolgt in mehreren Schritten:
+
+1. **Bildvorbereitung**: Das Eingangsbild wird in Grayscale konvertiert um Rechenleistung zu sparen
+2. **Markererkennung**: Die OpenCV ArUco-Bibliothek scannt das gesamte Bild nach bekannten Marker-Patterns
+3. **Eckpunkt-Extraktion**: Für jeden erkannten Marker werden die vier Eckpunkte im Bild extrahiert
+4. **ID-Dekodierung**: Der binäre Code wird dekodiert um die Marker-ID zu ermitteln
+5. **Rückgabewerte**: Die Methode gibt zurück, ob Marker erkannt wurden und enthält Informationen zu:
+   - Marker-IDs der erkannten Marker
+   - 2D Bild-Koordinaten der Eckpunkte
+   - Konfidenzwerte der Erkennung
+
+#### Pose-Estimation (estimate_pose Methode)
+
+Nachdem Marker erkannt wurden, muss die genaue 3D-Position und Orientierung bestimmt werden. Dies erfolgt durch Pose-Estimation:
+
+**Schritt 1: Marker-Größe auswählen**
+Für jeden erkannten Marker wird basierend auf der ID die korrekte physische Größe ermittelt. Dies ist kritisch, da die PnP-Berechnung die tatsächliche Markergröße kennen muss um korrekte Abstände zu berechnen.
+
+**Schritt 2: 3D-Objektpunkte definieren**
+Basierend auf der Markergröße werden die vier Eckpunkte des Markers im 3D-Raum definiert. Für einen 175mm Marker im Ursprung wären dies:
+- Oben-Links: (-87.5, -87.5, 0)
+- Oben-Rechts: (87.5, -87.5, 0)
+- Unten-Rechts: (87.5, 87.5, 0)
+- Unten-Links: (-87.5, 87.5, 0)
+
+Diese Punkte definieren einen Marker in der XY-Ebene des Marker-Koordinatensystems.
+
+**Schritt 3: PnP-Berechnung (Perspective-n-Point)**
+Das Perspective-n-Point Problem löst folgende Aufgabe: "Gegeben sind 4 bekannte 3D-Punkte und deren Projektionen im 2D-Bild, berechne die Kamera-Position und Orientierung relativ zu diesen Punkten."
+
+Die Lösung ergibt:
+- Eine Rotationsmatrix: Beschreibt die 3D-Rotation des Markers
+- Einen Translationsvektor: Beschreibt die 3D-Position des Markers
+
+**Schritt 4: Abstands- und Winkelberechnung**
+Aus der Rotationsmatrix und dem Translationsvektor werden intuitive Parameter berechnet:
+- **Abstand**: Euklidische Distanz von der Kamera zum Marker (Länge des Translationsvektors)
+- **Winkel**: Der Gier-Winkel (Yaw) wird aus der Rotationsmatrix extrahiert und beschreibt, wie viel der Marker nach links/rechts von der Kamera-Blickrichtung versetzt ist
+
+**Rückgabewerte**: Die Methode gibt Listen mit Abständen und Winkeln für alle erkannten Marker zurück.
+
+#### Mehrmarker-Handling
+
+Das System kann mehrere Marker gleichzeitig erkennen. Der Prozess funktioniert wie folgt:
+
+- Der detect_markers Schritt erkennt alle Marker im Bild
+- Der estimate_pose Schritt berechnet Pose für jeden erkannten Marker
+- Die Rückgabe sind Listen (eine Eintrag pro Marker)
+- Die Action Server wählen dann den relevanten Marker basierend auf ihrer aktuellen Mission
+
+Beispiel: Wenn sowohl Marker 0 als auch Marker 69 im Bild sind, erkennt das System beide. Der FollowActionServer ignoriert Marker 0 solange er im State 20 (Folge) ist, akzeptiert ihn aber wenn er als Abbruch-Signal dienen soll.
 
 ### Kameramodell
 
-Das System verwendet eine kalibrierte Kamera mit folgenden Parametern:
+Das System verwendet eine kalibrierte Kamera mit intrinsischen und extrinsischen Parametern.
 
-Die Kameramatrix beschreibt die intrinsischen Kamera-Eigenschaften. Sie enthält die Brennweite in x und y Richtung sowie den Hauptpunkt (optische Achse).
+#### Intrinsische Kamera-Parameter (Kameramatrix)
 
-Die Distortionskoeffizienten kompensieren optische Verzerrungen durch die Kameralinse, insbesondere Verzeichnungen und tangentiale Verzerrungen. Diese Parameter wurden durch Kamerakalibrierung bestimmt und sind spezifisch für das verwendete Kamera-Setup.
+Die Kameramatrix beschreibt wie 3D-Punkte in der Welt in 2D-Bildpunkte projiziert werden. Sie enthält folgende kritische Parameter:
+
+- **Brennweite fx, fy**: Gemessen in Pixeln, beschreibt die Vergrößerung. Typische Werte liegen zwischen 300-1000 je nach Kamera-Auflösung und Linse
+- **Hauptpunkt (cx, cy)**: Die Bildkoordinate des Kamera-Zentrums. Normalerweise in der Bildmitte, z.B. (320, 240) für ein 640x480 Bild
+- Diese Parameter werden einmalig durch Kamerakalibrierung bestimmt und sind spezifisch für das verwendete Kamera-Setup
+
+#### Distortionskoeffizienten
+
+Reale Kameralinsen erzeugen optische Verzerrungen, die korrigiert werden müssen:
+
+- **Radiale Distortion**: Die Linse verzerrt das Bild am Rand (Verzeichnung). Dies wird durch radiale Distortionskoeffizienten (k1, k2, k3) modelliert
+- **Tangentiale Distortion**: Unverhältnisse bei der Linsenmontage verursachen zusätzliche Verzerrungen, modelliert durch (p1, p2)
+- Diese Koeffizienten werden durch Kalibrierung bestimmt und speichern, wie stark die Linse verzerrt
+
+#### Kalibrierungsprozess
+
+Die Kalibrierung ist ein einmaliger Prozess:
+
+1. Mehrere Bilder eines Schachbrett-Musters aus verschiedenen Positionen werden aufgenommen
+2. Das System erkennt die Ecken des Schachbrettes automatisch
+3. Basierend auf diesen bekannten Positionen berechnet ein Algorithmus die Kameramatrix und Distortionskoeffizienten
+4. Die Ergebnisse werden in einer Kalibrierungsdatei gespeichert (z.B. picam_calib.npz)
+
+#### Anwendung bei Pose-Estimation
+
+Bei der PnP-Berechnung werden die Kalibrierungsparameter verwendet um:
+
+- Die Linsenverzerrung zu korrigieren, bevor die Marker-Eckpunkte verarbeitet werden
+- Korrekte Abstands- und Winkelberechnungen durchzuführen
+- Genauigkeit auf wenige Millimeter zu reduzieren
+
+Ohne korrekte Kalibrierung würden Pose-Schätzungen um Zentimeter oder mehr abweichen.
+
+### ArucoMarkerDetector - Implementierungsdetails
+
+#### Klassen-Variablen und Initialisierung
+
+Der ArucoMarkerDetector wird mit folgenden Konfigurationen initialisiert:
+
+- **MARKER_SIZES**: Ein Dictionary das Marker-IDs auf ihre physische Größe in Metern abbildet. Beispiel: {0: 0.175, 69: 0.075}
+- **Kameramatrix und Distortionskoeffizienten**: Diese werden aus der Kalibrierungsdatei geladen
+- **ArUco-Wörterbuch**: Wird aus OpenCV geladen um die Marker-IDs zu dekodieren
+
+#### Detaillierter Ablauf detect_markers()
+
+1. Input: Kamerabild als NumPy Array
+2. Konvertierung in Grayscale für bessere Verarbeitung
+3. Aufrufen der OpenCV ArUco Detector mit dem ArUco-Wörterbuch
+4. Die Detector gibt zurück: Marker-Eckpunkte und dekodierte IDs
+5. Rückgabe: Boolean (ob Marker erkannt wurden) und die erkannten Marker-Daten
+
+#### Detaillierter Ablauf estimate_pose()
+
+1. Input: Die Marker-Eckpunkte und IDs aus detect_markers()
+2. Für jeden Marker:
+   a. Hole die Marker-Größe aus MARKER_SIZES basierend auf der ID
+   b. Definiere die 4 3D-Eckpunkte des Markers im Marker-Koordinatensystem
+   c. Extrahiere die 2D-Bildkoordinaten der 4 Eckpunkte
+   d. Rufe solvePnP auf mit: 3D-Punkte, 2D-Bildpunkte, Kameramatrix, Distortionskoeffizienten
+   e. solvePnP gibt Rotationsvektor und Translationsvektor zurück
+3. Konvertiere Rotationsvektor in Rotationsmatrix
+4. Extrahiere den Yaw-Winkel aus der Rotationsmatrix
+5. Berechne Abstand als Norm des Translationsvektors
+6. Speichere Abstand und Winkel in Listen
+7. Rückgabe: Listen mit Abständen und Winkeln für alle Marker
+
+#### Fehlerbehandlung und Robustheit
+
+Das System behandelt mehrere Fehlerszenarien:
+
+- **Keine Marker erkannt**: detect_markers gibt False zurück, estimate_pose wird nicht aufgerufen
+- **Zu wenige Marker-Eckpunkte**: solvePnP benötigt mindestens 4 Punkte, normalerweise vorhanden
+- **Ambiguöse Lösungen**: solvePnP kann mehrere Lösungen geben, wird durch Use_extrinsicGuess gelöst
+- **Numerische Instabilität**: Bei sehr großen oder sehr kleinen Abständen können Fehler auftreten
+
+### Performance und Optimierungen
+
+#### Timing
+
+- **Bilderfassungsrate**: 30 Hz (typisch für ROS2 Kameratreiber)
+- **Marker-Erkennungslatenz**: ~10-20 ms pro Bild (OpenCV ArUco ist optimiert)
+- **Pose-Estimations-Latenz**: ~5-10 ms pro Marker (abhängig von Anzahl Marker)
+- **Gesamtlatenz**: Typisch ~30-40 ms vom physischen Marker bis zur verfügbaren Pose-Information
+
+#### Optimierungsmöglichkeiten
+
+Falls die Performance nicht ausreichend ist:
+
+- Bildauflösung reduzieren: Schnellere Verarbeitung, aber schlechtere Erkennungsreichweite
+- Region-of-Interest nutzen: Nur einen Teil des Bildes scannen wenn Marker-Position bekannt ist
+- Mehrere Kamera-Threads: Parallel zu anderen Operationen verarbeiten
+- Hardware-Beschleunigung: Einige OpenCV ArUco Funktionen können auf GPU laufen
 
 ---
 
