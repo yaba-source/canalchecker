@@ -14,9 +14,11 @@ from geometry_msgs.msg import Twist
 
 
 
+
 class FollowActionServer(Node):
     def __init__(self):
         super().__init__('follow_action_server')
+
 
         self._goal_lock = threading.Lock()
         self._goal_handle = None
@@ -27,10 +29,12 @@ class FollowActionServer(Node):
         self._aruco_angle = 0.0
         self._aruco_lock = threading.Lock()
         
-        # Ziel-Distanz und Max-Geschwindigkeit aus Topics
-        self._target_distance = 50.0
-        self._max_speed = 0
+        # Ziel-Distanz: Default 50cm, wird überschrieben sobald Topic empfängt
+        self._target_distance = 50.0  # Default: 50cm = 0.5m
         self._target_distance_lock = threading.Lock()
+        
+        # Max-Geschwindigkeit
+        self._max_speed = 0.15
         self._max_speed_lock = threading.Lock()
         
         # Publisher für Roboter-Bewegung
@@ -70,6 +74,7 @@ class FollowActionServer(Node):
         
         # self.get_logger().info('Follow Action Server initialized')
 
+
     def goal_callback_fnc(self, goal_request):
         """Akzeptiert Goal und übernimmt Parameter"""
         # self.get_logger().info(
@@ -77,13 +82,8 @@ class FollowActionServer(Node):
         #     f'max_speed={goal_request.max_speed}m/s'
         # )
         
-        with self._target_distance_lock:
-            self._target_distance = goal_request.target_distance
-        
-        with self._max_speed_lock:
-            self._max_speed = goal_request.max_speed
-        
         return GoalResponse.ACCEPT
+
 
     def cancel_callback_fnc(self, goal_handle):
         # self.get_logger().info('Follow goal cancel requested')
@@ -96,11 +96,13 @@ class FollowActionServer(Node):
             self._aruco_distance = msg.aruco_distance
             self._aruco_angle = msg.aruco_angle
 
+
     def target_distance_callback(self, msg: Float32):
         """Callback für dynamische Ziel-Distanz Änderung"""
         with self._target_distance_lock:
             self._target_distance = msg.data
         # self.get_logger().info(f"Neue Ziel-Distanz: {msg.data:.1f} cm")
+
 
     def max_speed_callback(self, msg: Float32):
         """Callback für dynamische Geschwindigkeits-Änderung"""
@@ -114,10 +116,12 @@ class FollowActionServer(Node):
             self._max_speed = speed
         # self.get_logger().info(f"Neue Max-Geschwindigkeit: {speed:.3f} m/s")
 
+
     def get_target_distance(self):
         """Thread-safe Zugriff auf Ziel-Distanz"""
         with self._target_distance_lock:
             return self._target_distance
+
 
     def get_max_speed(self):
         """Thread-safe Zugriff auf Max-Geschwindigkeit"""
@@ -127,6 +131,7 @@ class FollowActionServer(Node):
     def execute_callback_fnc(self, goal_handle):
         """Hauptschleife für Follow Action"""
         # self.get_logger().info('★★★ EXECUTE_CALLBACK gestartet!')
+
 
         state_machine = FollowStateMachine(logger=self.get_logger())
         
@@ -143,7 +148,7 @@ class FollowActionServer(Node):
                 # self.get_logger().info('Cancel empfangen - beende Aktion')
                 self._stop_robot()
                 goal_handle.canceled()
-                return ActionType.Result(reached=False)  # Sauberer Return!
+                return Follow.Result(reached=False)
     
             
             with self._aruco_lock:
@@ -193,6 +198,7 @@ class FollowActionServer(Node):
         
         self._stop_robot()
 
+
         if state_machine.follow_done:
             goal_handle.succeed()
             # self.get_logger().info('Follow action succeeded')
@@ -200,12 +206,14 @@ class FollowActionServer(Node):
         else:
             return Follow.Result(reached=False)
 
+
     def _stop_robot(self):
         """Stoppt den Roboter"""
         stop_cmd = Twist()
         stop_cmd.linear.x = 0.0
         stop_cmd.angular.z = 0.0
         self.publisher.publish(stop_cmd)
+
 
 
 def main():
@@ -216,6 +224,7 @@ def main():
         rclpy.spin(follow_action_server, executor=multithread_executor)
     finally:
         rclpy.shutdown()
+
 
 
 if __name__ == '__main__':

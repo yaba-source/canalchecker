@@ -43,6 +43,11 @@ source install/setup.bash
 ```
 
 ## Startup und Launch
+### Turtlebot via Launch-File
+Der Turtlebot muss als erstes gestartet werden:
+```bash 
+ros2 launch turtlebot3_bringup robot.launch.py
+```
 
 ### Hauptstart via Launch-File
 
@@ -62,7 +67,9 @@ Das Launch-File orchestriert folgende Komponenten:
 
 **DriveActionServer**: Action Server für gezielte Fahrt. Fährt den Roboter zum definierten Zielabstand.
 
-**FollowActionServer**: Action Server für kontinuierliche Verfolgung. Folgt dem Zielmarker mit Abstands- und Winkelregelung.
+**FollowActionServer**: Action Server für das Folgen eines anderen Roboters. Folgt dem Zielmarker mit Abstands- und Winkelregelung.
+
+**ActionServerHandler**: Client für die Koordination der verschieden Server.
 
 
 
@@ -235,7 +242,7 @@ Weitere Marker-Größen können einfach hinzugefügt werden.
 ros2 topic pub /max_speed std_msgs/Float32 "data: 0.1"
 
 # Zielabstand für Follow ändern (in cm)
-ros2 topic pub /target_distance std_msgs/Float32 "data: 75.0"
+ros2 topic pub /target_distance std_msgs/Float32 "data: 50.0"
 
 # Topics überwachen
 ros2 topic echo /aruco_detections

@@ -25,7 +25,7 @@ class AlignActionServer(Node):
         self._aruco_distance = 0.0
         self._aruco_angle = 0.0
         self._aruco_lock = threading.Lock()
-        self._max_speed = 0.1
+        self._max_speed = 0
         self._max_speed_lock = threading.Lock()
         
         # Publisher für cmd_vel

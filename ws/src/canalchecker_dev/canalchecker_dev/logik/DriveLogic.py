@@ -58,6 +58,10 @@ class DriveStateMachine:
         :param None:
         :return None:
         """
+        if self.max_linear_speed == 0.0:
+            self.linear_speed = 0.0
+            self.angular_speed = 0.0
+            return
         match self.state:
             case 1:
             

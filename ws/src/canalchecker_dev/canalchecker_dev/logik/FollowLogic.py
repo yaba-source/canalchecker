@@ -54,6 +54,10 @@ class FollowStateMachine:
         self.angular_speed = angular
     
     def execute(self):
+        if self.max_speed == 0.0:
+            self.linear_speed = 0.0
+            self.angular_speed = 0.0
+            return
         
         self.distance_to_robot = self.target_distance / 100.0
         
