@@ -14,8 +14,9 @@
 ## Architektur
 
 ### Überblick
-Das CanalChecker-System folgt einer **hierarchischen ROS2-Architektur** mit einer zentrale Koordinierung.
-Die Architektur ist in der Datei Software_arch.drawio zu finden 
+Das CanalChecker-System folgt einer **hierarchischen ROS2-Architektur** mit einer zentralen Koordinierung.
+Die Architektur ist in der Datei Software_arch.drawio zu finden .
+Dies kann mittels der ['Draw.io Integration' Extension](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) innerhalb von VSCode betrachtet werden.
 
 
 
@@ -54,7 +55,7 @@ Der ActionServerHandler verwaltet folgende Attribute:
 
 #### 1. Initialisierung
 
-Der ActionServerHandler abonniert zunächst das ArucoDetection Topic, um Marker-Informationen zu empfangen. Danach werden die Action Clients für Align, Drive und Follow erstellt. Nach der Initialisierung wird automatisch die Align-Action gestartet.
+Der ActionServerHandler abonniert zunächst das Topic 'ArucoDetection', um Marker-Informationen zu empfangen. Danach werden die Action Clients für 'Align', 'Drive' und 'Follow' erstellt. Nach der Initialisierung wird automatisch die Align-Action gestartet.
 
 #### 2. Aruco-Trigger-System
 
@@ -97,6 +98,10 @@ class DriveActionServer(Node):
     - Output: /cmd_vel (Roboter-Steuerbefehle)
     
     State Machine: DriveLogic
+
+    Eigenschaften:
+    - Winkelregelung
+    - Feedback: Distanz zu Aruco-ID 0
 ```
 
 **Ablauf**:
@@ -164,7 +169,7 @@ class FollowActionServer(Node):
 State 10: SUCHE          State 20: FOLGE            State 30: FERTIG
 ┌─────────────┐         ┌────────────────┐        ┌──────────────┐
 │ Warte auf   │ ─────►  │ Folge Marker   │ ─────► │ Follow Done  │
-│ Marker 69   │ ID==69  │ mit P-Regler │ ID==0  │ = True       │
+│ Marker 69   │ ID==69  │ mit P-Regler   │ ID==0  │ = True       │
 └─────────────┘         └────────────────┘        └──────────────┘
                               ▲                          │
                               │                          │
