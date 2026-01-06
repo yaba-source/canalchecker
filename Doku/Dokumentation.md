@@ -14,8 +14,9 @@
 ## Architektur
 
 ### Überblick
-Das CanalChecker-System folgt einer **hierarchischen ROS2-Architektur** mit einer zentrale Koordinierung.
-Die Architektur ist in der Datei Software_arch.drawio zu finden 
+Das CanalChecker-System folgt einer **hierarchischen ROS2-Architektur** mit einer zentralen Koordinierung.
+Die Architektur ist in der Datei Software_arch.drawio zu finden .
+Dies kann mittels der ['Draw.io Integration' Extension](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) innerhalb von VSCode betrachtet werden.
 
 
 
@@ -54,7 +55,7 @@ Der ActionServerHandler verwaltet folgende Attribute:
 
 #### 1. Initialisierung
 
-Der ActionServerHandler abonniert zunächst das ArucoDetection Topic, um Marker-Informationen zu empfangen. Danach werden die Action Clients für Align, Drive und Follow erstellt. Nach der Initialisierung wird automatisch die Align-Action gestartet.
+Der ActionServerHandler abonniert zunächst das Topic 'ArucoDetection', um Marker-Informationen zu empfangen. Danach werden die Action Clients für 'Align', 'Drive' und 'Follow' erstellt. Nach der Initialisierung wird automatisch die Align-Action gestartet.
 
 #### 2. Aruco-Trigger-System
 
@@ -97,6 +98,10 @@ class DriveActionServer(Node):
     - Output: /cmd_vel (Roboter-Steuerbefehle)
     
     State Machine: DriveLogic
+
+    Eigenschaften:
+    - Winkelregelung
+    - Feedback: Distanz zu Aruco-ID 0
 ```
 
 **Ablauf**:
@@ -164,7 +169,7 @@ class FollowActionServer(Node):
 State 10: SUCHE          State 20: FOLGE            State 30: FERTIG
 ┌─────────────┐         ┌────────────────┐        ┌──────────────┐
 │ Warte auf   │ ─────►  │ Folge Marker   │ ─────► │ Follow Done  │
-│ Marker 69   │ ID==69  │ mit P-Regler │ ID==0  │ = True       │
+│ Marker 69   │ ID==69  │ mit P-Regler   │ ID==0  │ = True       │
 └─────────────┘         └────────────────┘        └──────────────┘
                               ▲                          │
                               │                          │
@@ -517,3 +522,33 @@ Das CanalChecker-System ist eine **hierarchische ROS2-Architektur** mit:
 6. **Asynchrones Callback-System** für non-blocking Operationen
 
 Der Workflow folgt automatisch: Align → Drive → Follow, wobei der Übergang zu Follow durch Erkennung von Marker 69 automatisch ausgelöst wird.
+
+---
+
+## Anleitung zur verwendung
+
+Für das verwenden des Canalcheckers wird grundsätzlich folgendes benötigt:
+
+1. **Betriebssystem** Ubuntu 22.04 oder WSL2 mit Ubuntu - Reines Ubuntu empfohlen
+2. **ROS2 Distro** Humble
+3. **Python** 3.10.12
+
+### Benötigte Dependencies
+
+1. **ROS2 Humble** Hier kann einfach der [ROS2 Humble doku](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html) gefolgt werden um ROS zu installieren
+2. **Python** Standardmäßig in allen Modernen Ubuntu distros, auch 22.04 enthalten. Im Falle von 22.04 ist Python 3.10.12 vorinstalliert
+3. **Rosdep** Rosdep ist für ROS ein tool welches automatisiert zusätzlich benötigte dependencies von ROS2 installiert. Hier kann ebenfalls der [ROS2 doku](https://docs.ros.org/en/humble/Tutorials/Intermediate/Rosdep.html) gefolgt werden.
+4. **OpenCV** kann einfach mit pip installiert werden: *pip install opencv-python*
+
+### Bauen und Ausführen
+
+Mittels terminal in das verzeichnis ***canalchecker ► ws***. Hier sollte der Ordner 'src' vorhanden sein. Ist das alles der fall, einfach:
+
+1. **Build** In das Terminal ***colcon build*** eingeben
+2. **Sourcen** In das Terminal ***source ./install/setup.bash*** eingeben, um das gebaute Projekt verfügbar zu machen
+3. **Ausführen** Hierzu kann das launch file verwendet werden. Hierzu einfach ***ros2 launch canalchecker_bringup canalchecker.launch.py***
+
+Es ist zu beachten dass der Handler separat gestartet werden muss. Außerdem wird empfohlen, den 'src' ordner auf den Turtlebot via 'scp' zu laden, dort zu kompilieren und Auszuführen. Für den Handler ein neues Terminal öffnen, in den workspace eines gebauten projektes gehen und:
+
+1. **Sourcen** In das Terminal ***source ./install/setup.bash***
+2. **Ausführen** In das Terminal ***ros2 run canalchecker_dev ActionServerHandler***
