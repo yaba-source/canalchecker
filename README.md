@@ -47,7 +47,9 @@ source install/setup.bash
 Der Turtlebot muss als erstes gestartet werden:
 ```bash 
 ros2 launch turtlebot3_bringup robot.launch.py
+
 ```
+Dieses Terminal muss offen bleiben
 
 ### Hauptstart via Launch-File
 
@@ -69,8 +71,13 @@ Das Launch-File orchestriert folgende Komponenten:
 
 **FollowActionServer**: Action Server für das Folgen eines anderen Roboters. Folgt dem Zielmarker mit Abstands- und Winkelregelung.
 
-**ActionServerHandler**: Client für die Koordination der verschieden Server.
+**ActionServerHandler**: Client für die Koordination der verschieden Server. Startet 3 Sekunden Zeit verzögert:
 
+### Losfahren 
+Zum Losfahren muss eine Geschwindigkeit auf dem Topic `/max_speed`gepostet werden.
+```bash
+ros2 topic pub /max_speed std_msgs/Float32 "data: 0.1"
+```
 
 
 ## Projektstruktur
@@ -79,31 +86,31 @@ Das Launch-File orchestriert folgende Komponenten:
 canalchecker/
 ├── ws/                          # ROS2 Workspace
 │   ├── src/
-│   │   ├── canalchecker_bringup/
-│   │   │   └── launch/
-│   │   │       └── canalchecker.launch.py    # Hauptstart-Datei
-│   │   ├── canalchecker_dev/
-│   │   │   ├── ActionServer/
-│   │   │   │   ├── AlignActionServer.py
-│   │   │   │   ├── DriveActionServer.py
-│   │   │   │   └── FollowActionServer.py
-│   │   │   ├── logik/
-│   │   │   │   ├── AlignLogic.py
-│   │   │   │   ├── DriveLogic.py
-│   │   │   │   └── FollowLogic.py
-│   │   │   ├── MachineVision/
-│   │   │   │   ├── ArucoMarkerDetector.py
-│   │   │   │   ├── CameraNode.py
-│   │   │   │   └── CameraCalibration.py
-│   │   │   └── ActionServerHandler.py
-│   │   └── canalchecker_interface/
-│   │       ├── action/
-│   │       │   ├── Align.action
-│   │       │   ├── Drive.action
-│   │       │   └── Follow.action
-│   │       └── msg/
-│   │           └── ArucoDetection.msg
-│   └── install/
+│      ├── canalchecker_bringup/
+│      │   └── launch/
+│      │       └── canalchecker.launch.py    
+│      ├── canalchecker_dev/
+│      │   ├── ActionServer/
+│      │   │   ├── AlignActionServer.py
+│      │   │   ├── DriveActionServer.py
+│      │   │   └── FollowActionServer.py
+│      │   ├── logik/
+│      │   │   ├── AlignLogic.py
+│      │   │   ├── DriveLogic.py
+│      │   │   └── FollowLogic.py
+│      │   ├── MachineVision/
+│      │   │   ├── ArucoMarkerDetector.py
+│      │   │   ├── CameraNode.py
+│      │   │   └── CameraCalibration.py
+│      │   └── ActionServerHandler.py
+│      └── canalchecker_interface/
+│          ├── action/
+│          │   ├── Align.action
+│          │   ├── Drive.action
+│          │   └── Follow.action
+│          └── msg/
+│              └── ArucoDetection.msg
+│   
 └── Doku/
     └── Dokumentation.md         # Detaillierte Technische Dokumentation
 ```
@@ -116,7 +123,6 @@ Die Kernkomponente des Systems, die alle Operationen orchestriert:
 
 Startet automatisch mit der Align-Mission. Überwacht kontinuierlich das `/aruco_detections` Topic auf erkannte Marker. Wenn Marker 69 erkannt wird, bricht das System automatisch die laufende Mission ab und startet die Follow-Mission. Nach erfolgreicher Verfolgung (Marker 0 erkannt) kehrt das System zu Align zurück oder wartet auf neue Missionen.
 
-Implementiert Thread-sichere Datenstruktionen für asynchrone Callback-Verarbeitung.
 
 ### Action Server
 
@@ -145,7 +151,6 @@ Alle nutzen P-Regler-basierte Regelungen für präzise Kontrolle.
 
 **CameraNode**: Startet Kamera-Interface. Ruft Markererkennung auf. Publiziert ArucoDetection Nachrichten mit 30 Hz.
 
-**CameraCalibration**: Werkzeug zur Kamera-Kalibrierung mit Schachbrett-Muster.
 
 ## Topics
 
@@ -227,9 +232,11 @@ Weitere Marker-Größen können einfach hinzugefügt werden.
 
 1. System startet mit `ros2 launch canalchecker_bringup canalchecker.launch.py`
 2. CameraNode beginnt Markererkennung
-3. ActionServerHandler startet Align-Mission
-4. Roboter richtet sich aus
-5. System wartet auf Marker 69
+3. ActionServerHandler startet AlignServer
+4. Roboter richtet sich auf Marker 0 aus
+5. Roboter fährt zu Marker 0 auf den vorgegebenen Mindestabstand
+6. Mindestabstand ereicht wird gewendet bis Marker 0 wieder erkannt wird und wieder Schritt 4 in Kraft tritt 
+5. Dauerhaft wartet das System auf Marker 69
 6. Wenn Marker 69 erkannt → Automatischer Wechsel zu Follow-Mission
 7. Roboter folgt Marker mit Abstands- und Winkelregelung
 8. Bei Erkennung von Marker 0 → Follow beendet
