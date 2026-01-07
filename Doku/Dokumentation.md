@@ -510,6 +510,22 @@ Diese Tools ermöglichen es, die Systemfunktion in Echtzeit zu überwachen und P
 
 ---
 
+## Gründe für Designentscheidungen
+
+**Reglerauswahl**
+
+Überall wo ein Regler benötigt wird, wurde ein P-Regler implementiert. Dieser verwendet den Regelfehler (z.B. den Unterschied zwischen dem Sollwinkel zu ArUco-ID 0 und dem Istwinkel) und verstärkt ihn mit einer konstanten in gegenrichtung. Die einfache implementierung und parametriesierung, typisch für den Reglertyp, war hier ausschlaggebend. Die Reglerkonstante Kp wurde hier mittels praktischen versuchen bestimmt. Das konzept ist auch in der .drawio datei unter **Doku ► Regler ► reglerkonzept.drawio** beschrieben.
+
+**Architekturauslegung**
+
+Als Grundarchitektur wurde ein Master-Slave konzept verwendet. Hierbei bildet 'ActionServerHandler.py' den Master und ruft die jeweiligen ActionServer auf. Diese variante wurde gewählt, da auf diesem weg immer nur eine Action gleichzeitig ablaufen kann und so konflikte vermieden werden können. Außerdem wird so das **SOLID** Programierprinzip verwirklicht.
+
+**Maschinelles sehen**
+
+Für das Maschinelle sehen wurde die Python bibliothek **OpenCV** verwendet. Diese ist faktisch standard für projekte welche Python und Maschinelles sehen beinhalten. Für die Orientierung des Roboters und die erkennung anderer Roboter wurden ArUco marker verwendet. Für diesen Typ marker hat OpenCV bereits integrierte relativ leicht zu verwendende funktionen, ebenso zur Kalibrierung der Kamera.
+
+---
+
 ## Zusammenfassung
 
 Das CanalChecker-System ist eine **hierarchische ROS2-Architektur** mit:
