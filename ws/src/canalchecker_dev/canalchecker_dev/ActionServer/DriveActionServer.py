@@ -13,6 +13,7 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32
 
+NO_ROBOT_TIMEOUT = 10
 
 class DriveActionServer(Node):
     def __init__(self):
@@ -65,6 +66,8 @@ class DriveActionServer(Node):
         self.cmd = Twist()
         self.cmd.linear.x = 0.0
         self.cmd.angular.z = 0.0
+
+        self.no_aruco_start_time = None
         
         # self.get_logger().info('Drive Action Server initialized')
 
@@ -127,7 +130,7 @@ class DriveActionServer(Node):
                 state.id = self.aruco_id
                 state.angle = self.aruco_angle
                 state.distance = self.aruco_dist
-            
+
             # Max Speed aktualisieren
             with self.max_speed_lock:
                 state.max_linear_speed = self.max_speed
@@ -136,6 +139,12 @@ class DriveActionServer(Node):
             if self.aruco_id == -1:
                 # self.get_logger().warn('Kein Aruco gefunden - stoppe')
                 self.stop_robot()
+                if self.no_aruco_start_time is None:
+                    self.no_aruco_start_time = self.get_clock().now()
+                else:
+                    elapsed = (self.get_clock().now() - self.no_aruco_start_time).nanoseconds / 1e9
+                    if elapsed > NO_ROBOT_TIMEOUT:
+                        self.get_logger().error("ROBOTER IM WEG!!")
             else:
                 # State Machine ausführen
                 state.execute()
