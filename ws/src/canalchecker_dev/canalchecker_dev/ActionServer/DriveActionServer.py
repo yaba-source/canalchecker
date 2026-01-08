@@ -148,6 +148,7 @@ class DriveActionServer(Node):
             else:
                 # State Machine ausführen
                 state.execute()
+                self.no_aruco_start_time = None
                 
                 # Bewegungskommando senden
                 self.cmd.linear.x = state.linear_speed
