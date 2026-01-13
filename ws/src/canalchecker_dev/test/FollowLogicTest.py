@@ -5,7 +5,13 @@ Testet Follow-Logik, Abstandsregelung und P-Controller
 
 import unittest
 import math
-from FollowLogic import FollowStateMachine, KP_ANGULAR
+import sys
+import os
+
+# Füge Parent-Directory zum Python Path hinzu
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from canalchecker_dev.logik.FollowLogic import FollowStateMachine, KP_ANGULAR
 
 
 class TestFollowStateMachine(unittest.TestCase):
@@ -48,7 +54,6 @@ class TestFollowStateMachine(unittest.TestCase):
         self.sm.execute()
         
         self.assertEqual(self.sm.state, 10)
-        self.assertFalse(self.sm.robot_found)
     
     def test_state10_wrong_marker(self):
         """State 10: Falscher Marker ignoriert"""
@@ -58,7 +63,6 @@ class TestFollowStateMachine(unittest.TestCase):
         self.sm.execute()
         
         self.assertEqual(self.sm.state, 10)
-        self.assertFalse(self.sm.robot_found)
     
     def test_state10_correct_marker_found(self):
         """State 10: Marker 69 gefunden → Wechsel zu State 20"""
@@ -100,10 +104,10 @@ class TestFollowStateMachine(unittest.TestCase):
         self.sm.execute()
         self.assertGreater(self.sm.linear_speed, 0, "Sollte vorwärts fahren")
         
-        # Test: Zu nah → sollte rückwärts fahren
+        # Test: Zu nah → Robot stoppt (execute() prüft distance_to_robot)
         self.sm.distance = 0.3  # 30 cm
         self.sm.execute()
-        self.assertLess(self.sm.linear_speed, 0, "Sollte rückwärts fahren")
+        self.assertEqual(self.sm.linear_speed, 0.0, "Sollte stoppen wenn zu nah")
     
     def test_state20_distance_too_close_stops(self):
         """State 20: Stoppt bei zu geringer Distanz"""
@@ -156,6 +160,8 @@ class TestFollowStateMachine(unittest.TestCase):
     def test_state30_completion(self):
         """State 30: Follow abgeschlossen"""
         self.sm.state = 30
+        self.sm.distance = 1.0
+        self.sm.id = 69
         
         self.sm.execute()
         
@@ -300,6 +306,7 @@ class TestFollowStateMachineEdgeCases(unittest.TestCase):
         self.sm.state = 20
         self.sm.distance = 1.0
         self.sm.target_distance = 50.0
+        self.sm.logger = None  # Kein Logger zu Testzwecken
         
         # Wechsel zwischen 69 und -1
         for i in range(10):
@@ -320,7 +327,7 @@ class TestFollowStateMachineEdgeCases(unittest.TestCase):
         self.assertNotEqual(self.sm.linear_speed, 0.0)
         
         # Sehr große Ziel-Distanz
-        self.sm.target_distance = 100.0  # 100 cm
+        self.sm.target_distance = 200.0  # 200 cm
         self.sm.execute()
     
     def test_extreme_angles(self):

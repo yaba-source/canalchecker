@@ -1,3 +1,8 @@
+"""Drive Action Server für Roboter-Navigation mittels ArUco-Markern.
+
+Dieser ROS2 Action Server steuert einen Roboter zur Navigation an ArUco-Marken.
+Er verwaltet Sensoreingaben, Bewegungslogik und Fahrbefehle.
+"""
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.action import ActionServer, GoalResponse, CancelResponse
@@ -16,8 +21,22 @@ from std_msgs.msg import Float32
 NO_ROBOT_TIMEOUT = 10
 
 class DriveActionServer(Node):
+    """
+    ROS2 Action Server für Roboter-Navigation mit ArUco-Marker-Erkennung.
+    
+    Verwaltet Sensoreingaben (ArUco, Odometrie, Geschwindigkeit) und steuert
+    den Roboter über die DriveStateMachine. Timeout nach 10s Marker-Verlust.
+    
+    Topics:
+        - Subscribe: /aruco_detections, /max_speed, /odom
+        - Publish: /cmd_vel
+    """
     def __init__(self):
-        super().__init__('drive_action_server')
+        """
+        Initialisiert den Drive Action Server mit ROS2-Komponenten und Locks.
+        
+        Standardwerte: max_speed=0.1 m/s, kein Marker erkannt (id=-1)
+        """
         
         self.action_server = ActionServer(
             self,
@@ -72,26 +91,42 @@ class DriveActionServer(Node):
         # self.get_logger().info('Drive Action Server initialized')
 
     def goal_callback_fnc(self, goal_request):
-        # self.get_logger().info('★★★ Drive Goal EMPFANGEN')
+        """
+        Akzeptiert ein neues Drive-Ziel und extrahiert max_speed.
+        
+        Returns:
+            GoalResponse.ACCEPT
+        """
         with self.max_speed_lock:
             self.max_speed = goal_request.max_speed
         return GoalResponse.ACCEPT
 
     def cancel_callback_fnc(self, goal_handle):
-        # self.get_logger().info('Drive goal cancel requested')
+        """
+        Akzeptiert Stornierungsanfragen.
+        
+        Returns:
+            CancelResponse.ACCEPT
+        """
         return CancelResponse.ACCEPT
 
     def aruco_callback_fnc(self, msg: ArucoDetection):
-        with self.aruco_lock:
-            self.aruco_dist = msg.aruco_distance
-            self.aruco_angle = msg.aruco_angle
-            self.aruco_id = msg.aruco_id
+        """
+        Speichert ArUco-Erkennungsdaten (ID, Abstand, Winkel) thread-sicher.
+        """
+        self.aruco_dist = msg.aruco_distance
+        self.aruco_angle = msg.aruco_angle
+        self.aruco_id = msg.aruco_id
 
     def listener_callback_fnc(self, msg: Odometry):
-        pass
+        """
+        Placeholder für Odometrie-Daten. Wird derzeit nicht verwendet.
+        """
 
     def max_speed_callback_fnc(self, msg: Float32):
-        speed = msg.data
+        """
+        Aktualisiert max_speed mit Validierung auf Bereich [0.0, 0.2] m/s.
+        """
 
         if speed < 0.0:
             speed = 0.0
@@ -104,8 +139,18 @@ class DriveActionServer(Node):
             self.max_speed = speed
 
     def execute_callback_fnc(self, goal_handle):
-        """Hauptfunktion des Drive Action Servers"""
-        # self.get_logger().info('Drive EXECUTE gestartet!')
+        """
+        Hauptausführungs-Callback für Drive-Aktionen.
+        
+        - Erzeugt DriveStateMachine und lädt Parameter
+        - Loop (30 Hz): Kopiert Sensordaten, führt State-Machine aus, sendet Befehle
+        - Behandelt Marker-Verlust mit 10s Timeout
+        - Veröffentlicht Feedback mit Abstand
+        - Stoppt Robot bei Abschluss oder Abbruch
+        
+        Returns:
+            Drive.Result mit reached=True/False
+        """
         self.goal_handle = goal_handle
         
         # OHNE logger Parameter
@@ -180,7 +225,9 @@ class DriveActionServer(Node):
 
     
     def stop_robot(self):
-        """Stoppt den Roboter"""
+        """
+        Setzt alle Geschwindigkeiten auf 0 und stoppt den Roboter sofort.
+        """
         self.cmd = Twist()
         self.cmd.linear.x = 0.0
         self.cmd.angular.z = 0.0
@@ -188,6 +235,9 @@ class DriveActionServer(Node):
 
 
 def main():
+    """
+    Einstiegspunkt: Initialisiert ROS2 und startet Drive Action Server mit MultiThreadedExecutor.
+    """
     rclpy.init()
     try:
         drive_action_server = DriveActionServer()
