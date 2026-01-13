@@ -38,6 +38,20 @@ class ActionServerHandler(Node):
         self._send_goal_promise = None
         
         self.get_logger().info('Handler gestartet - starte Align')
+
+        # Warte auf Action Server
+        self.get_logger().info('Warte auf Align Action Server...')
+        self.actionserver_align.wait_for_server()
+        self.get_logger().info('Align Action Server erreichbar')
+        
+        self.get_logger().info('Warte auf Drive Action Server...')
+        self.actionserver_drive.wait_for_server()
+        self.get_logger().info('Drive Action Server erreichbar')
+        
+        self.get_logger().info('Warte auf Follow Action Server...')
+        self.actionserver_follow.wait_for_server()
+        self.get_logger().info('Alle Action Server erreichbar - starte Handler')
+        
         self.send_align_goal()
 
 
@@ -216,7 +230,6 @@ class ActionServerHandler(Node):
             self.current_action = None
             return
         
-        # Erfolgreicher Abschluss - match-case für nächste Action
         match action_name:
             case 'align':
                 if result.reached:

@@ -3,7 +3,24 @@ from .ArucoMarkerDetector import ArucoMarkerDetector
 import numpy as np
 
 class PictureProcessing():
+    """
+    Verarbeitet Videobilder und extrahiert ArUco-Marker-Informationen.
+    
+    Diese Klasse stellt eine High-Level-Schnittstelle zur Bilderfassung von der Kamera
+    und zur Verarbeitung durch den ArucoMarkerDetector bereit. Sie verwaltet die
+    Videokamera und liefert normalisierte Marker-Informationen.
+    
+    Attributes:
+        aruco_detector (ArucoMarkerDetector): Instanz des Marker-Detektors
+        cap: OpenCV VideoCapture Objekt für die Kamera
+    """
     def __init__(self):
+        """
+        Initialisiert die Bildverarbeitung und öffnet die Standard-Kamera.
+        
+        Erstellt eine Instanz des ArucoMarkerDetector und öffnet die Kamera
+        (normalerweise /dev/video0) für die Live-Bilderfassung.
+        """
         self.aruco_detector = ArucoMarkerDetector()
         self.cap = cv.VideoCapture(0)
         

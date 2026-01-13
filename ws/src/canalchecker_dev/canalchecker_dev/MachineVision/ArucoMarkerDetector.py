@@ -3,12 +3,34 @@ import numpy as np
 import math
 
 class ArucoMarkerDetector:
+    """
+    Detektor für ArUco-Marker zur Positionsbestimmung und Pose-Estimation.
+    
+    Diese Klasse nutzt OpenCV's ArUco-Bibliothek um quadratische Marker zu erkennen
+    und ihre genaue 3D-Position und Orientierung relativ zur Kamera zu berechnen.
+    Das System unterstützt mehrere Marker-Typen mit unterschiedlichen Größen.
+    
+    Attributes:
+        marker_sizes (dict): Dictionary das Marker-IDs auf ihre physische Größe in Metern abbildet.
+            - ID 0: 175mm Marker (Zielpunkt)
+            - ID 69: 75mm Marker (Trigger-Marker)
+        aruco_dict: OpenCV ArUco-Wörterbuch für die Markererkennung (DICT_5X5_100)
+        aruco_params: Erkennungsparameter für den ArUco-Detektor
+        camera_matrix: Intrinsische Kameramatrix (Brennweite, Hauptpunkt)
+        dist_coeffs: Distortionskoeffizienten zur Linsenverzerrungskorrektur
+    """
     # Marker sizes in meters
-    MARKER_SIZES = {
+    marker_sizes = {
         0: 0.175,   
         69: 0.075   
     }
     def __init__(self):
+        """
+        Initialisiert den ArUco-Marker Detektor mit Kalibrierungsparametern.
+        
+        Lädt das ArUco-Wörterbuch und die intrinsischen Kameraparameter aus der
+        durchgeführten Kamerakalibrierung. Dies ist notwendig für korrekte Pose-Estimation.
+        """
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_100)
         self.aruco_params = cv2.aruco.DetectorParameters()
         
@@ -37,7 +59,23 @@ class ArucoMarkerDetector:
         self.angles = None
     
     def detect_markers(self, frame):
-        self.frame = frame
+        """
+        Erkennt ArUco-Marker im eingegangenen Videobild.
+        
+        Diese Methode scannt das gesamte Eingangsbild nach bekannten ArUco-Marker-Patterns.
+        Sie konvertiert das Bild zu Grayscale um Rechenleistung zu sparen und nutzt dann
+        den OpenCV ArUco-Detektor um Marker-Eckpunkte und IDs zu extrahieren.
+        
+        Args:
+            frame: NumPy Array des Eingabebildes im BGR-Format von der Kamera
+        
+        Returns:
+            bool: True wenn mindestens ein Marker erkannt wurde, sonst False
+            
+        Note:
+            Die erkannten Daten werden in den Klassenvariablen self.corners,
+            self.ids und self.rejected gespeichert für nachfolgende Verarbeitung.
+        """
         self.gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
         
         detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
@@ -47,12 +85,32 @@ class ArucoMarkerDetector:
     
     def estimate_pose(self):
         """
-        SolvePnP to estimate the pose of detected Aruco markers.
-
+        Berechnet die 3D-Pose aller erkannten ArUco-Marker mittels PnP-Estimation.
         
-        :param self: Description
-        :return angle to marker in degrees and distance to marker in meters
-
+        Diese Methode löst das Perspective-n-Point (PnP) Problem um aus den erkannten
+        2D-Bildkoordinaten des Markers und seiner bekannten 3D-Größe die genaue
+        3D-Position und Orientierung relativ zur Kamera zu berechnen.
+        
+        Prozess:
+        1. Für jeden erkannten Marker wird die korrekte physische Größe aus marker_sizes geholt
+        2. Die vier 3D-Eckpunkte des Markers im Marker-Koordinatensystem werden definiert
+        3. solvePnP wird aufgerufen mit den 3D-Punkten und 2D-Bildkoordinaten
+        4. Aus der Rotationsmatrix und dem Translationsvektor werden Abstand und Winkel berechnet
+        
+        Returns:
+            tuple: (distances, angles)
+                - distances (list): Abstände in Metern von der Kamera zu jedem Marker [m]
+                - angles (list): Winkel in Grad zu jedem Marker relativ zur Kamera-Blickrichtung [°]
+            
+            Returns (None, None) wenn keine Marker erkannt wurden.
+            
+        Note:
+            Der Winkel wird durch atan2 des X-Offsets und des Z-Abstands berechnet.
+            Positive Winkel bedeuten Marker rechts von der Kamera-Blickrichtung.
+            Negative Winkel bedeuten Marker links von der Kamera-Blickrichtung.
+            
+            Die Berechnung nutzt die vorher festgestellten Kalibrierungsparameter
+            (camera_matrix und dist_coeffs) um genaue Ergebnisse zu erzielen.
         """
 
         if self.ids is None or len(self.corners) == 0:
@@ -67,7 +125,7 @@ class ArucoMarkerDetector:
             mid = marker_id[0]
             
            
-            marker_size = self.MARKER_SIZES.get(mid, 0.175)  
+            marker_size = self.marker_sizes.get(mid, 0.175)  
             half_size = marker_size / 2.0
             obj_points = np.array([
                 [-half_size,  half_size, 0],  
