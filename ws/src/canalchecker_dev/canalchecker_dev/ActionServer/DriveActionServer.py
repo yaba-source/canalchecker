@@ -37,6 +37,7 @@ class DriveActionServer(Node):
         
         Standardwerte: max_speed=0.1 m/s, kein Marker erkannt (id=-1)
         """
+        super().__init__('drive_action_server')
         
         self.action_server = ActionServer(
             self,
