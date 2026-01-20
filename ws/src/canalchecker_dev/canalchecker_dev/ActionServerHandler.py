@@ -256,10 +256,10 @@ class ActionServerHandler(Node):
                 # self.get_logger().info(f'Follow Result: reached={result.reached}')
                 if result.reached:
                     # self.get_logger().info('Follow ERFOLGREICH → zurück zu Align')
-                    pass
+                    self.send_align_goal()
                 else:
-                    # self.get_logger().warn('Follow nicht reached → zurück zu Align')
-                    pass
+                    #self.get_logger().warn('Follow nicht reached → zurück zu Align')
+                    pass #Ist drin weil logger auskommentiert
                 
                 self.current_action = None
                 self._follow_triggered = False
@@ -276,13 +276,13 @@ class ActionServerHandler(Node):
         
         if self.current_action == 'align':
             # self.get_logger().info(f'Align Feedback: {feedback}')
-            pass
+            pass #Ist drin weil logger auskommentiert
         elif self.current_action == 'drive':
             # self.get_logger().info(f'Drive Feedback: {feedback}')
-            pass
+            pass#Ist drin weil logger auskommentiert
         elif self.current_action == 'follow':
             # self.get_logger().info(f'Follow Feedback: {feedback}')
-            pass
+            pass#Ist drin weil logger auskommentiert
 
 
 
@@ -301,8 +301,8 @@ def main(args=None):
     try:
         executor.spin()
     except KeyboardInterrupt:
-        # handler.get_logger().info('Handler gestoppt')
-        pass
+        handler.get_logger().info('Handler gestoppt')
+        
     finally:
         executor.shutdown()
         rclpy.shutdown()

@@ -524,7 +524,45 @@ Als Grundarchitektur wurde ein Master-Slave konzept verwendet. Hierbei bildet 'A
 
 Für das Maschinelle sehen wurde die Python bibliothek **OpenCV** verwendet. Diese ist faktisch standard für projekte welche Python und Maschinelles sehen beinhalten. Für die Orientierung des Roboters und die erkennung anderer Roboter wurden ArUco marker verwendet. Für diesen Typ marker hat OpenCV bereits integrierte relativ leicht zu verwendende funktionen, ebenso zur Kalibrierung der Kamera.
 
+**Warum Multithreaded Executer**
+Es hat sich heraus gestellt das die rclpy Spin once auf dem Raspberry Pie nicht möglich.   
+
+**Warum cancel_current_action**
+Um in den Follow Modus zukommen müssen die anderen Nodes abgebrochen werden.
+
+**Warum nicht OPENCV-Winkel Funktionen**
+Die Winkelrückgabe der Open-CV Funktion hat sich als unzuverlässig heraus gestellt.
+
+
+**ReentrantCallbackGroup vs MutuallyExclusiveCallbackGroup**
+ReentrantCallbackGroup:
+Mehrere Callbacks können gleichzeitig ausgeführt werden
+Keine Synchronisation zwischen Callbacks
+Alle Callbacks laufen parallel/asynchron
+Risiko: Race Conditions, wenn Callbacks auf die gleiche Variable zugreifen
+Vorteil: Höhere Performance, schnellere Verarbeitung
+
+MutuallyExclusiveCallbackGroup
+Nur ein Callback läuft zur gleichen Zeit
+Andere Callbacks warten, bis der aktuelle fertig ist (mutex = gegenseitiger Ausschluss)
+Vorteil: Thread-safe, keine Race Conditions
+Nachteil: Langsamer, da Callbacks sich "blockieren"
+
+****
 ---
+**Multi Theraded Executer**
+
+**Follower in Extra ActionServer Node**
+
+**ARUCO-Funktion selber berechnen**
+
+**GoalCallback GoalResponseAccept**
+
+**Getter nur für bestimmte Funktionen**
+
+**State Machine anstatt If-Else**
+ 
+**Warum cancel_current_action** 
 
 ## Zusammenfassung
 

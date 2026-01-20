@@ -152,7 +152,7 @@ class ArucoMarkerDetector:
                
                 distance = tvec[2][0]  
                 x_offset = tvec[0][0]  
-                y_offset = tvec[1][0]
+                
                 
                 angle_to_marker = math.degrees(math.atan2(x_offset, distance))
                 
