@@ -67,7 +67,7 @@ class FollowStateMachine:
         self.max_speed = 0.2          
         
         self.distance_tolerance = 0.1
-        self.kp_linear = 0.2
+        self.kp_linear = 0.5
         self.max_linear_speed = 0.2
         self.robot_found = True
 
