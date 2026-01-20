@@ -78,8 +78,8 @@ class AlignStateMachine:
                     
                 if self.id == self.id_to_turn and self.distance > self.distance_far_marker:  
                         self.state = 20
-                        if self.logger:
-                            self.logger.info(f"Marker ID 0 gefunden bei {self.distance:.2f}m, starte Alignment")
+                      #  if self.logger:
+                       #     self.logger.info(f"Marker ID 0 gefunden bei {self.distance:.2f}m, starte Alignment")
                 else:
                         self.angular_speed = self.search_angular_speed  
             
@@ -93,22 +93,21 @@ class AlignStateMachine:
 
                         if abs(self.angle) < self.angle_tolerance:
                             self.state = 30
-                            if self.logger:
-                                self.logger.info(
-                                    f"Align fertig auf Marker 0 bei Distanz {self.distance:.2f}m und Winkel {self.angle:.2f}°"
-                                )
+                          #  if self.logger:
+                           #     self.logger.info(
+                            #        f"Align fertig auf Marker 0 bei Distanz {self.distance:.2f}m und Winkel {self.angle:.2f}°"  )
                 else:
                     
                     self.marker_lost_counter += 1
                     if self.marker_lost_counter > 5:
                         self.state = 10
-                        if self.logger:
-                            self.logger.info(f"Falscher/kein Marker {self.id}, zurück zur Suche")
+                   #     if self.logger:
+                    #        self.logger.info(f"Falscher/kein Marker {self.id}, zurück zur Suche")
 
             case 30:  
                 self.align_done = True
                 self.linear_speed = 0.0
                 self.angular_speed = 0.0
-                if self.logger:
-                    self.logger.info(f"AlignStateMachine: Align fertig")
+               # if self.logger:
+                #    self.logger.info(f"AlignStateMachine: Align fertig")
                     

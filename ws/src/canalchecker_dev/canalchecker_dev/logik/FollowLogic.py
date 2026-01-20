@@ -201,18 +201,18 @@ class FollowStateMachine:
             return
         match self.state:
             case 10:  
-                if self.logger:
-                    self.logger.info("State 10: Suche nach Roboter")
+                #if self.logger:
+                    # self.logger.info("State 10: Suche nach Roboter")
                 if self.id == self.id_to_follow:
-                    self.state = 20
-                    if self.logger:
-                        self.logger.info(f"Marker ID {self.id_to_follow} gefunden bei {self.distance:.2f}m, starte Alignment")
+                        self.state = 20
+                    #if self.logger:
+                    #  self.logger.info(f"Marker ID {self.id_to_follow} gefunden bei {self.distance:.2f}m, starte Alignment")
                 else:
                     self.robot_found = False
                     
             case 20:
-                if self.logger:
-                    self.logger.info("State 20: Folge Roboter")
+                #if self.logger:
+                    # self.logger.info("State 20: Folge Roboter")
                 if self.id == self.id_to_follow:
                     self.robot_found = True
                     self.marker_lost_counter = 0
@@ -225,12 +225,12 @@ class FollowStateMachine:
                     self.linear_speed = self.pcontroller_linear(distance_error)
 
                 else:
-                    if self.logger:
-                        self.logger.info("Roboter verloren, suche erneut.")
+                   # if self.logger:
+                    #    self.logger.info("Roboter verloren, suche erneut.")
                     self.linear_speed = 0.0
             case 30:
-                if self.logger:
-                    self.logger.info("State 30: Kein Roboter vorhanden, fahre mit Align fort")
+                #if self.logger:
+                   # self.logger.info("State 30: Kein Roboter vorhanden, fahre mit Align fort")
                 self.follow_done = True
                 self.linear_speed = 0.0
                 self.angular_speed = 0.0
