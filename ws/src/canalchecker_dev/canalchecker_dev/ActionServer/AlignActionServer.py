@@ -103,7 +103,7 @@ class AlignActionServer(Node):
         """Hauptschleife für Align Action"""
         # self.get_logger().info('Executing alignment')
         
-        state_machine = AlignStateMachine(logger=self.get_logger())
+        state_machine = AlignStateMachine(logger=None)
         state_machine.max_speed = self.get_max_speed()
         
         rate = self.create_rate(30)
@@ -150,6 +150,7 @@ class AlignActionServer(Node):
                 rate.sleep()
             except Exception as e:
                 # self.get_logger().debug(f'Rate sleep error (ignoriert): {e}')
+                pass
         
             # Roboter stoppen
                 self._stop_robot()

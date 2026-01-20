@@ -191,7 +191,7 @@ class DriveActionServer(Node):
                 else:
                     elapsed = (self.get_clock().now() - self.no_aruco_start_time).nanoseconds / 1e9
                     if elapsed > NO_ROBOT_TIMEOUT:
-                        self.get_logger().error("ROBOTER IM WEG!!")
+                         self.get_logger().error("ROBOTER IM WEG!!")
             else:
                 # State Machine ausführen
                 state.execute()
