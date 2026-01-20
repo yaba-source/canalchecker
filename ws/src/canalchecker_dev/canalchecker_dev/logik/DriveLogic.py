@@ -1,3 +1,4 @@
+# Erstellt von Marcel K.
 import math
 
 KP = 2                  # Reglerverstärkung

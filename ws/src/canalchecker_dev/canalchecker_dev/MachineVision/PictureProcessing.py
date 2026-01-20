@@ -1,3 +1,4 @@
+# Erstellt von Yannick B. und Marcel K.
 import cv2 as cv
 from .ArucoMarkerDetector import ArucoMarkerDetector
 import numpy as np

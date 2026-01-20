@@ -1,3 +1,4 @@
+# Erstellt von Marcel K.
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node

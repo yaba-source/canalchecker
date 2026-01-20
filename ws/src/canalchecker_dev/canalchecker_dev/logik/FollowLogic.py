@@ -1,3 +1,4 @@
+# Erstellt von Yannick B. und Marcel K.
 import math
 
 KP_ANGULAR = 2

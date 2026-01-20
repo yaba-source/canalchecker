@@ -1,3 +1,4 @@
+# Erstellt von Yannick B.
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
