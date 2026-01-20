@@ -1,5 +1,0 @@
-# ROS2 distro source
-source /opt/ros/humble/setup.bash
-
-# Workspace
-source ./install/setup.bash
