@@ -16,9 +16,19 @@
 ### Überblick
 Das CanalChecker-System folgt einer **hierarchischen ROS2-Architektur** mit einer zentralen Koordinierung.
 Die Architektur ist in der Datei Software_arch.drawio zu finden .
-Dies kann mittels der ['Draw.io Integration' Extension](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) innerhalb von VSCode betrachtet werden.
+Dies kann mittels der ['Draw.io Integration' Extension](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) innerhalb von VSCode betrachtet werden. Es gibt zwei Versionen der Architektur für den Plan/-Ist vergleich
 
+### Projektplan
+Der Projektplan ist unter https://github.com/users/yaba-source/projects/1/views/4
 
+Es gab folgende Änderungen:
+- Die Einarbeitung in den Machine Vision Part wurde um eine Woche gekürzt um die ROS Infrasruktur zu erstellen. 
+- Der Algin und Drive Action Server wurde gleichzeitig entwickelt da keine Überscheidung der Schnittstellen stattgefunden hat. Diese wurden dann nacheinander Integriert.
+- Der Follow wurde vor den Weihnachtsferien entwickelt und nach während der Ferien integriert. Hier waren wir vor dem Plan da Kapazitäten vorhanden waren. 
+
+### Code 
+Ist im Git zufinden oder im zugesendeten Ordner.
+[GitHub Link](https://github.com/yaba-source/canalchecker)
 
 ### Komponenten
 - **ActionServerHandler**: Zentrale Koordination, Aruco-Trigger-System
@@ -62,13 +72,13 @@ Der ActionServerHandler verwaltet folgende Attribute:
 
 #### 1. Initialisierung
 
-Der ActionServerHandler abonniert zunächst das Topic 'ArucoDetection', um Marker-Informationen zu empfangen. Danach werden die Action Clients für 'Align', 'Drive' und 'Follow' erstellt. Nach der Initialisierung wird automatisch die Align-Action gestartet.
+Der ActionServerHandler abonniert zunächst das Topic 'ArucoDetection', um Marker-Informationen zu empfangen. Danach werden die Action Clients für 'Align', 'Drive' und 'Follow' erstellt. Nach der Initialisierung wird die Align-Action gestartet, gefolgt von Drive.
 
 #### 2. Aruco-Trigger-System
 
-Der aruco_callback wird aufgerufen, wenn eine neue ArucoDetection Nachricht empfangen wird. Die erkannte Marker-ID wird thread-safe gespeichert. Wenn Marker 69 erkannt wird und das _follow_triggered Flag noch nicht gesetzt ist, wird das Flag auf True gesetzt und der Follow-Modus ausgelöst.
+Der `aruco_callback` wird kontinuierlich aufgerufen, wenn eine neue ArucoDetection-Nachricht empfangen wird. Die erkannte Marker-ID wird thread-safe gespeichert. Der Callback läuft parallel zu den laufenden Action Servern (Align oder Drive). Wenn Marker 69 erkannt wird und das `_follow_triggered`-Flag noch nicht gesetzt ist, wird das Flag auf `True` gesetzt und der Follow-Modus ausgelöst.
 
-Wichtig: Das _follow_triggered-Flag verhindert, dass Follow mehrfach ausgelöst wird, wenn Marker 69 kontinuierlich erkannt wird.
+Wichtig: Das `_follow_triggered`-Flag verhindert, dass Follow mehrfach ausgelöst wird, wenn Marker 69 kontinuierlich erkannt wird. Es wird erst zurückgesetzt, wenn eine neue Mission startet.
 
 #### 3. Follow-Modus Aktivierung
 
@@ -230,55 +240,13 @@ Marker ID 0 (Großer Marker):
 - Erkennungsbereich: Weiter entfernt erkennbar wegen größerer Fläche
 
 Marker ID 69 (Kleiner Marker):
-- Größe: 75 mm x 75 mm
+- Größe: 75 mm x 75 mm da an Roboter angebracht und so das Nahe auffahren möglich ist
 - Bedeutung: Trigger-Marker - startet den Follow-Modus
 - Anwendung: Wird erkannt um automatisch von Align zu Follow zu wechseln
 - Erkennungsbereich: Näher bei der Kamera, präzisere lokale Verfolgung
 
 Die unterschiedlichen Größen ermöglichen es dem System, verschiedene Aufgaben zu unterscheiden. Der große Marker 0 dient als Endziel, während der kleine Marker 69 als aktives Navigationsziel dient.
 
-#### Detection-Pipeline (detect_markers Methode)
-
-Die Marker-Erkennung erfolgt in mehreren Schritten:
-
-1. **Bildvorbereitung**: Das Eingangsbild wird in Grayscale konvertiert um Rechenleistung zu sparen
-2. **Markererkennung**: Die OpenCV ArUco-Bibliothek scannt das gesamte Bild nach bekannten Marker-Patterns
-3. **Eckpunkt-Extraktion**: Für jeden erkannten Marker werden die vier Eckpunkte im Bild extrahiert
-4. **ID-Dekodierung**: Der binäre Code wird dekodiert um die Marker-ID zu ermitteln
-5. **Rückgabewerte**: Die Methode gibt zurück, ob Marker erkannt wurden und enthält Informationen zu:
-   - Marker-IDs der erkannten Marker
-   - 2D Bild-Koordinaten der Eckpunkte
-   - Konfidenzwerte der Erkennung
-
-#### Pose-Estimation (estimate_pose Methode)
-
-Nachdem Marker erkannt wurden, muss die genaue 3D-Position und Orientierung bestimmt werden. Dies erfolgt durch Pose-Estimation:
-
-**Schritt 1: Marker-Größe auswählen**
-Für jeden erkannten Marker wird basierend auf der ID die korrekte physische Größe ermittelt. Dies ist kritisch, da die PnP-Berechnung die tatsächliche Markergröße kennen muss um korrekte Abstände zu berechnen.
-
-**Schritt 2: 3D-Objektpunkte definieren**
-Basierend auf der Markergröße werden die vier Eckpunkte des Markers im 3D-Raum definiert. Für einen 175mm Marker im Ursprung wären dies:
-- Oben-Links: (-87.5, -87.5, 0)
-- Oben-Rechts: (87.5, -87.5, 0)
-- Unten-Rechts: (87.5, 87.5, 0)
-- Unten-Links: (-87.5, 87.5, 0)
-
-Diese Punkte definieren einen Marker in der XY-Ebene des Marker-Koordinatensystems.
-
-**Schritt 3: PnP-Berechnung (Perspective-n-Point)**
-Das Perspective-n-Point Problem löst folgende Aufgabe: "Gegeben sind 4 bekannte 3D-Punkte und deren Projektionen im 2D-Bild, berechne die Kamera-Position und Orientierung relativ zu diesen Punkten."
-
-Die Lösung ergibt:
-- Eine Rotationsmatrix: Beschreibt die 3D-Rotation des Markers
-- Einen Translationsvektor: Beschreibt die 3D-Position des Markers
-
-**Schritt 4: Abstands- und Winkelberechnung**
-Aus der Rotationsmatrix und dem Translationsvektor werden intuitive Parameter berechnet:
-- **Abstand**: Euklidische Distanz von der Kamera zum Marker (Länge des Translationsvektors)
-- **Winkel**: Der Gier-Winkel (Yaw) wird aus der Rotationsmatrix extrahiert und beschreibt, wie viel der Marker nach links/rechts von der Kamera-Blickrichtung versetzt ist
-
-**Rückgabewerte**: Die Methode gibt Listen mit Abständen und Winkeln für alle erkannten Marker zurück.
 
 ### Kameramodell
 
@@ -331,21 +299,11 @@ Das System behandelt mehrere Fehlerszenarien:
 
 #### Timing
 
-- **Bilderfassungsrate**: 30 Hz (typisch für ROS2 Kameratreiber)
+- **Bilderfassungsrate**: 30 Hz (30 Bilder Pro Sekunde für genau Regelung)
 - **Marker-Erkennungslatenz**: ~10-20 ms pro Bild (OpenCV ArUco ist optimiert)
 - **Pose-Estimations-Latenz**: ~5-10 ms pro Marker (abhängig von Anzahl Marker)
 - **Gesamtlatenz**: Typisch ~30-40 ms vom physischen Marker bis zur verfügbaren Pose-Information
 
-#### Optimierungsmöglichkeiten
-
-Falls die Performance nicht ausreichend ist:
-
-- Bildauflösung reduzieren: Schnellere Verarbeitung, aber schlechtere Erkennungsreichweite
-- Region-of-Interest nutzen: Nur einen Teil des Bildes scannen wenn Marker-Position bekannt ist
-- Mehrere Kamera-Threads: Parallel zu anderen Operationen verarbeiten
-- Hardware-Beschleunigung: Einige OpenCV ArUco Funktionen können auf GPU laufen
-
----
 
 ## Nachrichtenschnittstellen
 
@@ -377,19 +335,50 @@ Diese Nachricht wird vom CameraNode (ROS2 Node in MachineVision) publiziert und 
 ```
 START
   │
-  ├─► CameraNode
+  ├─► CameraNode (kontinuierlich)
   │     └─► ArucoMarkerDetector.detect_markers()
   │         └─► Publish ArucoDetection Topic
   │
-  ├─► ActionServerHandler.aruco_callback()
-  │     ├─► Speichere Marker-ID
-  │     ├─► Erkannt Marker 69? ──NO──► Warte auf nächsten Callback
-  │     └─► YES
-  │         └─► _trigger_follow_mode()
-  │             ├─► Cancel aktuelle Action (falls aktiv)
-  │             └─► send_goal('follow', Follow.Goal())
+  ├─► ActionServerHandler Initialisierung
+  │     └─► send_goal('align', Align.Goal())
   │
-  ├─► FollowActionServer.execute_callback_fnc()
+  ├─► AlignActionServer.execute_callback() [Phase 1]
+  │     │
+  │     ├─► State Machine: Richte Roboter aus
+  │     │
+  │     │   [Parallel dazu:]
+  │     │   ActionServerHandler.aruco_callback() [kontinuierlich]
+  │     │     ├─► Speichere Marker-ID
+  │     │     ├─► Ist Marker 69 erkannt?
+  │     │     │   ├─► NEIN: Warte auf nächsten Callback
+  │     │     │   └─► JA (und noch nicht getriggert):
+  │     │     │       └─► _trigger_follow_mode()
+  │     │     │           ├─► Abbruch aktuelle Align-Action
+  │     │     │           └─► send_goal('follow', Follow.Goal())
+  │     │
+  │     └─► [Wenn Marker 69 nicht auftaucht:]
+  │         └─► Return Align.Result() ────► Align fertig
+  │
+  ├─► send_goal('drive', Drive.Goal()) ────► [Phase 2 startet, falls Marker 69 nicht erkannt]
+  │
+  ├─► DriveActionServer.execute_callback() [Phase 2]
+  │     │
+  │     ├─► State Machine: Fahre zu Zielabstand
+  │     │
+  │     │   [Parallel dazu:]
+  │     │   ActionServerHandler.aruco_callback() [kontinuierlich]
+  │     │     ├─► Speichere Marker-ID
+  │     │     ├─► Ist Marker 69 erkannt?
+  │     │     │   ├─► NEIN: Warte auf nächsten Callback
+  │     │     │   └─► JA (und noch nicht getriggert):
+  │     │     │       └─► _trigger_follow_mode()
+  │     │     │           ├─► Abbruch aktuelle Drive-Action
+  │     │     │           └─► send_goal('follow', Follow.Goal())
+  │     │
+  │     └─► [Wenn Marker 69 nicht auftaucht:]
+  │         └─► Return Drive.Result() ────► Drive fertig
+  │
+  ├─► FollowActionServer.execute_callback() [Phase 3 - nur wenn Marker 69 erkannt]
   │     ├─► Initialisiere FollowStateMachine
   │     ├─► Loop (30 Hz):
   │     │   ├─► Lese Aruco-Daten
@@ -399,12 +388,17 @@ START
   │     │   │   ├─► State 20: Folge Marker 69
   │     │   │   │   ├─► Winkelregler (P-Regler)
   │     │   │   │   └─► Abstandsregler (P-Regler)
-  │     │   │   └─► State 30: Abgeschlossen
+  │     │   │   └─► State 30: Abgeschlossen (bei Marker 0 erkannt)
   │     │   └─► Publish Twist auf /cmd_vel
   │     └─► Return Follow.Result()
   │
-  └─► Follow beendet → Nächste Mission z.B. Marker 0 
+  └─► Mission beendet
 ```
+
+**Zusammenfassung des Workflows:**
+- **Normal-Ablauf**: Align → Drive → [fertig]
+- **Mit Trigger während Align**: Align [wird unterbrochen] → Follow
+- **Mit Trigger während Drive**: Align → Drive [wird unterbrochen] → Follow
 
 
 
@@ -434,32 +428,6 @@ AlignLogic Parameter:
 - angle_tolerance: Zieltoleranz in Grad (Standard: 2)
 
 ---
-
-## Debugging & Fehlersuche
-
-### Häufige Probleme
-
-1. **Follow wird nicht ausgelöst**
-   - Marker 69 wird nicht erkannt → Camera-Setup prüfen
-   - Marker 69 wird erkannt aber Follow nicht gestartet → Handler Logs überprüfen
-
-2. **Roboter dreht sich im Kreis**
-   - Marker 0 wird nicht erkannt 
-   - KP_ANGULAR zu hoch → reduzieren auf 1.0
-   - Winkelberechnung falsch → ArucoMarkerDetector prüfen
-
-3. **Abstand wird nicht eingehalten**
-   - kp_linear zu klein → erhöhen
-   - Target_distance wird nicht richtig gelesen → Topic prüfen
-
-4. **Action wird nicht abgebrochen**
-   - Cancel-Callback fehlerhaft → ROS2 Action System prüfen
-   - Goal Handle ungültig → Timing-Issue?
-
-5. **Debugging Logger**
-   - Auslieferungszustand auskommentiert
-   - Können einkommentiert werden
-
 
 
 ## Gründe für Designentscheidungen
