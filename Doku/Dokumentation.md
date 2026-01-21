@@ -483,7 +483,7 @@ Da wir keine Goals haben, welche wir ablehnen, akzeptieren wir alle Goals und ge
 
 **Getter nur für bestimmte Variablen**
 
-Die Getter wurden nur bei Variablen verwendet, bei denen Locking relevant ist. Dies dient der Vereinfachung der Implementierung.
+Die Getter wurden nur bei Variablen verwendet, bei denen Locking relevant ist. Dies dient der Vereinfachung bei der  Implementierung.
 
 **State Machine mit match-case statt If-Else**
 
