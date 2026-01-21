@@ -27,6 +27,13 @@ Dies kann mittels der ['Draw.io Integration' Extension](https://marketplace.visu
 - **Machine Vision**: ArucoMarkerDetector (Markererkennung)
 - **Pub/Sub System**: Topics für Aruco-Daten, Geschwindigkeit, Zielabstand
 
+### Randbedingungen für das System
+- Gute Beleuchtung und Sichtbarkeit der Marker 
+- Die Marker Größe entspricht der in der Detector funktion angegeben
+- WLAN Verbindung zum Roboter
+- Aufbau entspticht dem Testaufbau
+- Marker in Sichtweite für Kamera
+- Oberfläche für den Roboter befahrbar
 ---
 
 ## ActionServerHandler
@@ -51,7 +58,7 @@ Der ActionServerHandler verwaltet folgende Attribute:
 - current_action: aktuelle Running-Action
 - _goal_handle: Handle der aktiven Action
 
-### Hauptablauf
+### Funktionen
 
 #### 1. Initialisierung
 
@@ -189,7 +196,7 @@ Beispiel: Wenn ein Marker 30 Grad nach rechts erkannt wird, entspricht dies etwa
 
 Der Abstandsregler implementiert eine proportionale Regelung des Abstands-Fehlers. Der Fehler wird als Differenz zwischen aktuellem Abstand und Zielabstand berechnet und mit dem Koeffizient kp_linear = 0.2 multipliziert. Das Ergebnis wird auf die maximale Fahrtgeschwindigkeit von 0.2 m/s begrenzt. Dies führt zu einer sanften, kontrollierten Annäherung oder Rückwärtsfahrt.
 
-Beispiel: Bei Zielabstand 0.5m und aktuellem Abstand 0.7m ergibt sich ein Fehler von 0.2m. Die Regelung berechnet dann 0.2 * 0.2 = 0.04 m/s Vorwärtsfahrt.
+Beispiel: Bei Zielabstand 0.5m und aktuellem Abstand 0.7m ergibt sich ein Fehler von 0.2m. Die Regelung berechnet dann 0.2 * 0.5 = 0.04 m/s Vorwärtsfahrt.
 
 ### DriveLogic & AlignLogic
 
@@ -273,17 +280,6 @@ Aus der Rotationsmatrix und dem Translationsvektor werden intuitive Parameter be
 
 **Rückgabewerte**: Die Methode gibt Listen mit Abständen und Winkeln für alle erkannten Marker zurück.
 
-#### Mehrmarker-Handling
-
-Das System kann mehrere Marker gleichzeitig erkennen. Der Prozess funktioniert wie folgt:
-
-- Der detect_markers Schritt erkennt alle Marker im Bild
-- Der estimate_pose Schritt berechnet Pose für jeden erkannten Marker
-- Die Rückgabe sind Listen (eine Eintrag pro Marker)
-- Die Action Server wählen dann den relevanten Marker basierend auf ihrer aktuellen Mission
-
-Beispiel: Wenn sowohl Marker 0 als auch Marker 69 im Bild sind, erkennt das System beide. Der FollowActionServer ignoriert Marker 0 solange er im State 20 (Folge) ist, akzeptiert ihn aber wenn er als Abbruch-Signal dienen soll.
-
 ### Kameramodell
 
 Das System verwendet eine kalibrierte Kamera mit intrinsischen und extrinsischen Parametern.
@@ -322,40 +318,6 @@ Bei der PnP-Berechnung werden die Kalibrierungsparameter verwendet um:
 - Genauigkeit auf wenige Millimeter zu reduzieren
 
 Ohne korrekte Kalibrierung würden Pose-Schätzungen um Zentimeter oder mehr abweichen.
-
-### ArucoMarkerDetector - Implementierungsdetails
-
-#### Klassen-Variablen und Initialisierung
-
-Der ArucoMarkerDetector wird mit folgenden Konfigurationen initialisiert:
-
-- **MARKER_SIZES**: Ein Dictionary das Marker-IDs auf ihre physische Größe in Metern abbildet. Beispiel: {0: 0.175, 69: 0.075}
-- **Kameramatrix und Distortionskoeffizienten**: Diese werden aus der Kalibrierungsdatei geladen
-- **ArUco-Wörterbuch**: Wird aus OpenCV geladen um die Marker-IDs zu dekodieren
-
-#### Detaillierter Ablauf detect_markers()
-
-1. Input: Kamerabild als NumPy Array
-2. Konvertierung in Grayscale für bessere Verarbeitung
-3. Aufrufen der OpenCV ArUco Detector mit dem ArUco-Wörterbuch
-4. Die Detector gibt zurück: Marker-Eckpunkte und dekodierte IDs
-5. Rückgabe: Boolean (ob Marker erkannt wurden) und die erkannten Marker-Daten
-
-#### Detaillierter Ablauf estimate_pose()
-
-1. Input: Die Marker-Eckpunkte und IDs aus detect_markers()
-2. Für jeden Marker:
-   a. Hole die Marker-Größe aus MARKER_SIZES basierend auf der ID
-   b. Definiere die 4 3D-Eckpunkte des Markers im Marker-Koordinatensystem
-   c. Extrahiere die 2D-Bildkoordinaten der 4 Eckpunkte
-   d. Rufe solvePnP auf mit: 3D-Punkte, 2D-Bildpunkte, Kameramatrix, Distortionskoeffizienten
-   e. solvePnP gibt Rotationsvektor und Translationsvektor zurück
-3. Konvertiere Rotationsvektor in Rotationsmatrix
-4. Extrahiere den Yaw-Winkel aus der Rotationsmatrix
-5. Berechne Abstand als Norm des Translationsvektors
-6. Speichere Abstand und Winkel in Listen
-7. Rückgabe: Listen mit Abständen und Winkeln für alle Marker
-
 #### Fehlerbehandlung und Robustheit
 
 Das System behandelt mehrere Fehlerszenarien:
@@ -482,6 +444,7 @@ AlignLogic Parameter:
    - Marker 69 wird erkannt aber Follow nicht gestartet → Handler Logs überprüfen
 
 2. **Roboter dreht sich im Kreis**
+   - Marker 0 wird nicht erkannt 
    - KP_ANGULAR zu hoch → reduzieren auf 1.0
    - Winkelberechnung falsch → ArucoMarkerDetector prüfen
 
@@ -492,23 +455,12 @@ AlignLogic Parameter:
 4. **Action wird nicht abgebrochen**
    - Cancel-Callback fehlerhaft → ROS2 Action System prüfen
    - Goal Handle ungültig → Timing-Issue?
+
 5. **Debugging Logger**
    - Auslieferungszustand auskommentiert
    - Können einkommentiert werden
 
-### Monitoring
 
-Zur Überwachung des Systems können folgende ROS2-Befehle verwendet werden:
-
-Topic-Überwachung zur Überprüfung der Aruco-Detektionsergebnisse und der Steuerbefehle.
-
-Action-Status Abfrage um die verfügbaren Actions und ihren Zustand zu überprüfen.
-
-Logs anschauen um Debug-Informationen der einzelnen Server zu sehen.
-
-Diese Tools ermöglichen es, die Systemfunktion in Echtzeit zu überwachen und Probleme zu diagnostizieren.
-
----
 
 ## Gründe für Designentscheidungen
 
@@ -544,11 +496,14 @@ Die Winkelrückgabe der OpenCV-Funktion hat sich als unzuverlässig und undurchs
 - Risiko: Race Conditions, wenn Callbacks auf die gleiche Variable zugreifen
 - Vorteil: Höhere Performance, schnellere Verarbeitung
 
+
 **MutuallyExclusiveCallbackGroup:**
 - Nur ein Callback läuft zur gleichen Zeit
 - Andere Callbacks warten, bis der aktuelle fertig ist (Mutex = gegenseitiger Ausschluss)
 - Vorteil: Thread-safe, keine Race Conditions
 - Nachteil: Langsamer, da Callbacks sich "blockieren"
+
+Da wir nur einen Callback pro Variable haben ist unser Entscheidung auf Reeantrant Callback Group gefallen. 
 
 **Follow-Action-Server in Extra ActionServer Node**
 
@@ -565,15 +520,22 @@ Die Getter wurden nur bei Variablen verwendet, bei denen Locking relevant ist. D
 **State Machine mit match-case statt If-Else**
 
 Durch State Machine mit match-case sind Strukturen und aktuelle Aktionen klar. Auch für das Debugging und die Wartung des Codes bringen sie enorme Vorteile. 
-## Zusammenfassung
+
+## Auswertung des Gesamtsystems
 
 Das CanalChecker-System ist eine **hierarchische ROS2-Architektur** mit:
 
 1. **Zentraler Koordination** (ActionServerHandler)
 2. **Spezialisierte Action Server** für verschiedene Missionsphasen
 3. **State Machines** für komplexe Verhaltenablläufe
-4. **PID-Regelung** für präzise Bewegungskontrolle
+4. **P-Regelung** für präzise Bewegungskontrolle
 5. **Computer Vision** mit ArUco-Markererkennung
 6. **Asynchrones Callback-System** für nicht-blockierende Operationen
 
 Der Workflow folgt automatisch: Align → Drive → Follow, wobei der Übergang zu Follow durch die Erkennung von Marker 69 automatisch ausgelöst wird.
+
+Das System funktioniert unter den gegeben Randbedingungen ohne weitere Probleme und hat keine bekannten Bugs.  
+
+
+
+
