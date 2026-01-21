@@ -514,65 +514,66 @@ Diese Tools ermöglichen es, die Systemfunktion in Echtzeit zu überwachen und P
 
 **Reglerauswahl**
 
-Überall wo ein Regler benötigt wird, wurde ein P-Regler implementiert. Dieser verwendet den Regelfehler (z.B. den Unterschied zwischen dem Sollwinkel zu ArUco-ID 0 und dem Istwinkel) und verstärkt ihn mit einer konstanten in gegenrichtung. Die einfache implementierung und parametriesierung, typisch für den Reglertyp, war hier ausschlaggebend. Die Reglerkonstante Kp wurde hier mittels praktischen versuchen bestimmt. Das konzept ist auch in der .drawio datei unter **Doku ► Regler ► reglerkonzept.drawio** beschrieben.
+Überall wo ein Regler benötigt wird, wurde ein P-Regler implementiert. Dieser verwendet den Regelfehler (z.B. den Unterschied zwischen dem Sollwinkel zu ArUco-ID 0 und dem Istwinkel) und verstärkt ihn mit einer konstanten in gegenrichtung. Die einfache implementierung und parametriesierung, typisch für den Reglertyp, war hier ausschlaggebend. Die Reglerkonstante Kp wurde hier mittels praktischen versuchen bestimmt. 
 
 **Architekturauslegung**
 
 Als Grundarchitektur wurde ein Master-Slave konzept verwendet. Hierbei bildet 'ActionServerHandler.py' den Master und ruft die jeweiligen ActionServer auf. Diese variante wurde gewählt, da auf diesem weg immer nur eine Action gleichzeitig ablaufen kann und so konflikte vermieden werden können. Außerdem wird so das **SOLID** Programierprinzip verwirklicht.
 
-**Maschinelles sehen**
 
-Für das Maschinelle sehen wurde die Python bibliothek **OpenCV** verwendet. Diese ist faktisch standard für projekte welche Python und Maschinelles sehen beinhalten. Für die Orientierung des Roboters und die erkennung anderer Roboter wurden ArUco marker verwendet. Für diesen Typ marker hat OpenCV bereits integrierte relativ leicht zu verwendende funktionen, ebenso zur Kalibrierung der Kamera.
 
 **Warum Multithreaded Executer**
-Es hat sich heraus gestellt das die rclpy Spin once auf dem Raspberry Pie nicht möglich.   
+
+Es hat sich heraus gestellt das die rclpy spin once auf dem Raspberry Pie nicht möglich.   
 
 **Warum cancel_current_action**
-Um in den Follow Modus zukommen müssen die anderen Nodes abgebrochen werden.
 
-**Warum nicht OPENCV-Winkel Funktionen**
-Die Winkelrückgabe der Open-CV Funktion hat sich als unzuverlässig heraus gestellt.
+Um in den Follow Modus zukommen müssen die andere Goals gecancelt werden.
+
+**Warum nicht OpenCV-ArUco-Winkelberechnungsfunktionen**
+
+Die Winkelrückgabe der OpenCV-Funktion hat sich als unzuverlässig und undurchsichtig herausgestellt.
 
 
-**ReentrantCallbackGroup vs MutuallyExclusiveCallbackGroup**
-ReentrantCallbackGroup:
-Mehrere Callbacks können gleichzeitig ausgeführt werden
-Keine Synchronisation zwischen Callbacks
-Alle Callbacks laufen parallel/asynchron
-Risiko: Race Conditions, wenn Callbacks auf die gleiche Variable zugreifen
-Vorteil: Höhere Performance, schnellere Verarbeitung
+**ReentrantCallbackGroup vs. MutuallyExclusiveCallbackGroup**
 
-MutuallyExclusiveCallbackGroup
-Nur ein Callback läuft zur gleichen Zeit
-Andere Callbacks warten, bis der aktuelle fertig ist (mutex = gegenseitiger Ausschluss)
-Vorteil: Thread-safe, keine Race Conditions
-Nachteil: Langsamer, da Callbacks sich "blockieren"
+**ReentrantCallbackGroup:**
+- Mehrere Callbacks können gleichzeitig ausgeführt werden
+- Keine Synchronisation zwischen Callbacks
+- Alle Callbacks laufen parallel/asynchron
+- Risiko: Race Conditions, wenn Callbacks auf die gleiche Variable zugreifen
+- Vorteil: Höhere Performance, schnellere Verarbeitung
 
-****
----
-**Multi Theraded Executer**
+**MutuallyExclusiveCallbackGroup:**
+- Nur ein Callback läuft zur gleichen Zeit
+- Andere Callbacks warten, bis der aktuelle fertig ist (Mutex = gegenseitiger Ausschluss)
+- Vorteil: Thread-safe, keine Race Conditions
+- Nachteil: Langsamer, da Callbacks sich "blockieren"
 
-**Follower in Extra ActionServer Node**
+**Follow-Action-Server in Extra ActionServer Node**
 
-**ARUCO-Funktion selber berechnen**
+Der Follow Action Server wurde ausgelagert, um die SOLID-Prinzipien einzuhalten. Die Aufgabe würde sich im Drive Action Server auch gut implementieren lassen, ist jedoch aus Sicht der Code-Erweiterbarkeit zum Handling von weiteren Robotern sinnvoller.
 
-**GoalCallback GoalResponseAccept**
+**GoalCallback**
 
-**Getter nur für bestimmte Funktionen**
+Da wir keine Goals haben, welche wir ablehnen, akzeptieren wir alle Goals und geben jedem Goal eine Bestätigung zurück. 
 
-**State Machine anstatt If-Else**
- 
-**Warum cancel_current_action** 
+**Getter nur für bestimmte Variablen**
 
+Die Getter wurden nur bei Variablen verwendet, bei denen Locking relevant ist. Dies dient der Vereinfachung der Implementierung.
+
+**State Machine mit match-case statt If-Else**
+
+Durch State Machine mit match-case sind Strukturen und aktuelle Aktionen klar. Auch für das Debugging und die Wartung des Codes bringen sie enorme Vorteile. 
 ## Zusammenfassung
 
 Das CanalChecker-System ist eine **hierarchische ROS2-Architektur** mit:
 
 1. **Zentraler Koordination** (ActionServerHandler)
-2. **Spezialisierte Action Server** für verschiedene Missionsphases
-3. **State Machines** für komplexe Verhaltensabläufe
+2. **Spezialisierte Action Server** für verschiedene Missionsphasen
+3. **State Machines** für komplexe Verhaltenablläufe
 4. **PID-Regelung** für präzise Bewegungskontrolle
 5. **Computer Vision** mit ArUco-Markererkennung
-6. **Asynchrones Callback-System** für non-blocking Operationen
+6. **Asynchrones Callback-System** für nicht-blockierende Operationen
 
-Der Workflow folgt automatisch: Align → Drive → Follow, wobei der Übergang zu Follow durch Erkennung von Marker 69 automatisch ausgelöst wird.
+Der Workflow folgt automatisch: Align → Drive → Follow, wobei der Übergang zu Follow durch die Erkennung von Marker 69 automatisch ausgelöst wird.

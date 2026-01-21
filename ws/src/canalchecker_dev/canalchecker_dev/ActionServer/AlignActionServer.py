@@ -131,7 +131,7 @@ class AlignActionServer(Node):
                 state_machine.distance = self._aruco_distance
                 state_machine.angle = self._aruco_angle
             
-            state_machine.max_speed = self.get_max_speed()
+            
             state_machine.execute()
             
             # Bewegung
