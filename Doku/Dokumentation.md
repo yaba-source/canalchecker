@@ -3,11 +3,13 @@
 ## Inhaltsverzeichnis
 1. [Architektur](#architektur)
 2. [ActionServerHandler](#actionserverhandler)
-3. [Action Server (Align, Drive, Follow)](#action-server)
+3. [Action Server (Align, Drive, Follow)](#action-server-align-drive-follow)
 4. [State Machines & Logik](#state-machines--logik)
-5. [Machine Vision (Aruco Detection)](#machine-vision)
+5. [Machine Vision (Aruco Detection)](#machine-vision-aruco-detection)
 6. [Nachrichtenschnittstellen](#nachrichtenschnittstellen)
 7. [Workflow & Ausführung](#workflow--ausführung)
+8. [Gründe für Designentscheidungen](#gründe-für-designentscheidungen)
+9. [Auswertung des Gesamtsystems](#auswertung-des-gesamtsystems)
 
 ---
 
@@ -15,28 +17,28 @@
 
 ### Überblick
 Das CanalChecker-System folgt einer **hierarchischen ROS2-Architektur** mit einer zentralen Koordinierung.
-Die Architektur ist in der Datei Software_arch.drawio zu finden .
-Dies kann mittels der ['Draw.io Integration' Extension](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) innerhalb von VSCode betrachtet werden. Es gibt zwei Versionen der Architektur für den Plan/-Ist vergleich
+Die Architektur ist in der Datei Software_arch.drawio zu finden.
+Dies kann mittels der ['Draw.io Integration' Extension](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) innerhalb von VSCode betrachtet werden. Es gibt zwei Versionen der Architektur für den Plan-/Ist-Vergleich.
 
 ### Projektplan
 Der Projektplan ist unter https://github.com/users/yaba-source/projects/1/views/4
 
 Es gab folgende Änderungen:
-- Die Einarbeitung in den Machine Vision Part wurde um eine Woche gekürzt um die ROS Infrasruktur zu erstellen. 
-- Der Algin und Drive Action Server wurde gleichzeitig entwickelt da keine Überscheidung der Schnittstellen stattgefunden hat. Diese wurden dann nacheinander Integriert.
-- Der Follow wurde vor den Weihnachtsferien entwickelt und nach während der Ferien integriert. Hier waren wir vor dem Plan da Kapazitäten vorhanden waren. 
+- Die Einarbeitung in den Machine Vision Part wurde um eine Woche gekürzt, um die ROS-Infrastruktur zu erstellen. 
+- Der Align und Drive Action Server wurde gleichzeitig entwickelt, da keine Überschneidung der Schnittstellen stattgefunden hat. Diese wurden dann nacheinander integriert.
+- Der Follow wurde vor den Weihnachtsferien entwickelt und während der Ferien integriert. Hier waren wir vor dem Plan, da Kapazitäten vorhanden waren. 
 
 ### Code 
-Ist im Git zufinden oder im zugesendeten Ordner.
+Ist im Git zu finden oder im zugesendeten Ordner.
 [GitHub Link](https://github.com/yaba-source/canalchecker)
 
 ### Randbedingungen für das System
 - Marker mit ID 0 auf beiden Seiten des Kanals
-- Marker mit ID 69 auf dem zu folgendem Roboter hinten geklebt
+- Marker mit ID 69 auf dem zu folgenden Roboter hinten geklebt
 - Gute Beleuchtung und Sichtbarkeit der Marker 
-- Die Marker Größe entspricht der in der Detector funktion angegeben
-- WLAN Verbindung zum Roboter
-- Aufbau entspticht dem Testaufbau
+- Die Markergröße entspricht der in der Detector-Funktion angegebenen
+- WLAN-Verbindung zum Roboter
+- Aufbau entspricht dem Testaufbau
 - Marker in Sichtweite für Kamera
 - Oberfläche für den Roboter befahrbar
 
@@ -51,7 +53,7 @@ Ist im Git zufinden oder im zugesendeten Ordner.
 ## ActionServerHandler
 
 ### Zweck
-Der **ActionServerHandler** ist die zentrale Koordinationslayer, die:
+Der **ActionServerHandler** ist die zentrale Koordinationsebene, die:
 - Alle Action Clients verwaltet (Align, Drive, Follow)
 - Aruco-Markererkennung überwacht
 - Automatische Modusübergänge steuert
@@ -67,7 +69,7 @@ Der ActionServerHandler verwaltet folgende Attribute:
 - actionserver_align: Client für Align Action
 - actionserver_drive: Client für Drive Action
 - actionserver_follow: Client für Follow Action
-- current_action: aktuelle Running-Action
+- current_action: aktuelle laufende Action
 - _goal_handle: Handle der aktiven Action
 
 ### Funktionen
@@ -101,7 +103,7 @@ Die send_goal Methode wird aufgerufen mit einem Action-Type und einer Goal-Nachr
 
 ---
 
-## Action Server
+## Action Server (Align, Drive, Follow)
 
 Drei spezialisierte Action Server, die jeweils eine Phase des Missions-Ablaufs durchführen:
 
@@ -125,7 +127,7 @@ class DriveActionServer(Node):
 
 **Ablauf**:
 1. Warte auf Aruco-Detektion
-2. Verwende Abstandsregelung um zu Zielposition zu fahren
+2. Verwende Abstandsregelung, um zu Zielposition zu fahren
 3. Bei Erreichen: Action beendet
 
 **Geschwindigkeit**: Thread-safe aus Topic `/max_speed` gelesen
@@ -150,14 +152,15 @@ class AlignActionServer(Node):
 
 **Ablauf**:
 1. Erkenne Marker-Winkel aus Aruco-Detektion
-2. Verwende P-Regler um Roboter auszurichten
+2. Verwende P-Regler, um Roboter auszurichten
 3. Bei Ausrichtung abgeschlossen: Action beendet
 
 ### FollowActionServer
 
 **Zweck**: Folge einem Zielmarker
 
- FollowActionServer 
+```python
+FollowActionServer 
     Topics:
     - Input: /aruco_detections (Marker-Info)
     - Input: /target_distance (Zielabstand aus Goal)
@@ -170,6 +173,7 @@ class AlignActionServer(Node):
     - Kontinuierliche Verfolgung
     - Abstandsregelung
     - Winkelausrichtung
+```
 
 **Ablauf**:
 1. Suche Marker 69
@@ -217,13 +221,13 @@ Beide folgen ähnlichem Muster mit State Machines, verwenden aber unterschiedlic
 
 ---
 
-## Machine Vision
+## Machine Vision (Aruco Detection)
 
 ### ArUco-Marker Erkennung - Tiefgreifende Erklärung
 
 #### Grundkonzept
 
-ArUco (Augmented Reality University of Cordoba) ist ein Open-Source Bibliothek zur Erkennung von fiduziellen Markern. Ein ArUco-Marker ist ein quadratisches Muster mit einem einzigartigen binären Code, der eine ID enthält. Das System nutzt diese Marker für:
+ArUco (Augmented Reality University of Cordoba) ist eine Open-Source Bibliothek zur Erkennung von fiduziellen Markern. Ein ArUco-Marker ist ein quadratisches Muster mit einem einzigartigen binären Code, der eine ID enthält. Das System nutzt diese Marker für:
 
 - **Positionsbestimmung**: Genaue 3D-Pose des Markers relativ zur Kamera
 - **Orientierungserkennung**: Winkel und Ausrichtung des Markers
@@ -236,13 +240,13 @@ Das System verwendet zwei verschiedene Marker mit unterschiedlichen Größen und
 Marker ID 0 (Großer Marker):
 - Größe: 175 mm x 175 mm
 - Bedeutung: Zielpunkt - markiert das Endziel der Navigation
-- Anwendung: Wird erkannt um zu signalisieren, dass die Follow-Mission abgeschlossen ist
+- Anwendung: Wird erkannt, um zu signalisieren, dass die Follow-Mission abgeschlossen ist
 - Erkennungsbereich: Weiter entfernt erkennbar wegen größerer Fläche
 
 Marker ID 69 (Kleiner Marker):
-- Größe: 75 mm x 75 mm da an Roboter angebracht und so das Nahe auffahren möglich ist
+- Größe: 75 mm x 75 mm, da an Roboter angebracht und so das nahe Auffahren möglich ist
 - Bedeutung: Trigger-Marker - startet den Follow-Modus
-- Anwendung: Wird erkannt um automatisch von Align zu Follow zu wechseln
+- Anwendung: Wird erkannt, um automatisch von Align zu Follow zu wechseln
 - Erkennungsbereich: Näher bei der Kamera, präzisere lokale Verfolgung
 
 Die unterschiedlichen Größen ermöglichen es dem System, verschiedene Aufgaben zu unterscheiden. Der große Marker 0 dient als Endziel, während der kleine Marker 69 als aktives Navigationsziel dient.
@@ -254,7 +258,7 @@ Das System verwendet eine kalibrierte Kamera mit intrinsischen und extrinsischen
 
 #### Intrinsische Kamera-Parameter (Kameramatrix)
 
-Die Kameramatrix beschreibt wie 3D-Punkte in der Welt in 2D-Bildpunkte projiziert werden. Sie enthält folgende kritische Parameter:
+Die Kameramatrix beschreibt, wie 3D-Punkte in der Welt in 2D-Bildpunkte projiziert werden. Sie enthält folgende kritische Parameter:
 
 - **Brennweite fx, fy**: Gemessen in Pixeln, beschreibt die Vergrößerung. Typische Werte liegen zwischen 300-1000 je nach Kamera-Auflösung und Linse
 - **Hauptpunkt (cx, cy)**: Die Bildkoordinate des Kamera-Zentrums. Normalerweise in der Bildmitte, z.B. (320, 240) für ein 640x480 Bild
@@ -279,13 +283,14 @@ Die Kalibrierung ist ein einmaliger Prozess:
 
 #### Anwendung bei Pose-Estimation
 
-Bei der PnP-Berechnung werden die Kalibrierungsparameter verwendet um:
+Bei der PnP-Berechnung werden die Kalibrierungsparameter verwendet, um:
 
 - Die Linsenverzerrung zu korrigieren, bevor die Marker-Eckpunkte verarbeitet werden
 - Korrekte Abstands- und Winkelberechnungen durchzuführen
 - Genauigkeit auf wenige Millimeter zu reduzieren
 
 Ohne korrekte Kalibrierung würden Pose-Schätzungen um Zentimeter oder mehr abweichen.
+
 #### Fehlerbehandlung und Robustheit
 
 Das System behandelt mehrere Fehlerszenarien:
@@ -299,7 +304,7 @@ Das System behandelt mehrere Fehlerszenarien:
 
 #### Timing
 
-- **Bilderfassungsrate**: 30 Hz (30 Bilder Pro Sekunde für genau Regelung)
+- **Bilderfassungsrate**: 30 Hz (30 Bilder pro Sekunde für genaue Regelung)
 - **Marker-Erkennungslatenz**: ~10-20 ms pro Bild (OpenCV ArUco ist optimiert)
 - **Pose-Estimations-Latenz**: ~5-10 ms pro Marker (abhängig von Anzahl Marker)
 - **Gesamtlatenz**: Typisch ~30-40 ms vom physischen Marker bis zur verfügbaren Pose-Information
@@ -434,21 +439,21 @@ AlignLogic Parameter:
 
 **Reglerauswahl**
 
-Überall wo ein Regler benötigt wird, wurde ein P-Regler implementiert. Dieser verwendet den Regelfehler (z.B. den Unterschied zwischen dem Sollwinkel zu ArUco-ID 0 und dem Istwinkel) und verstärkt ihn mit einer konstanten in gegenrichtung. Die einfache implementierung und parametriesierung, typisch für den Reglertyp, war hier ausschlaggebend. Die Reglerkonstante Kp wurde hier mittels praktischen versuchen bestimmt. 
+Überall, wo ein Regler benötigt wird, wurde ein P-Regler implementiert. Dieser verwendet den Regelfehler (z.B. den Unterschied zwischen dem Sollwinkel zu ArUco-ID 0 und dem Istwinkel) und verstärkt ihn mit einer Konstanten in Gegenrichtung. Die einfache Implementierung und Parametrierung, typisch für den Reglertyp, war hier ausschlaggebend. Die Reglerkonstante Kp wurde hier mittels praktischen Versuchen bestimmt. 
 
 **Architekturauslegung**
 
-Als Grundarchitektur wurde ein Master-Slave konzept verwendet. Hierbei bildet 'ActionServerHandler.py' den Master und ruft die jeweiligen ActionServer auf. Diese variante wurde gewählt, da auf diesem weg immer nur eine Action gleichzeitig ablaufen kann und so konflikte vermieden werden können. Außerdem wird so das **SOLID** Programierprinzip verwirklicht.
+Als Grundarchitektur wurde ein Master-Slave-Konzept verwendet. Hierbei bildet 'ActionServerHandler.py' den Master und ruft die jeweiligen ActionServer auf. Diese Variante wurde gewählt, da auf diesem Weg immer nur eine Action gleichzeitig ablaufen kann und so Konflikte vermieden werden können. Außerdem wird so das **SOLID**-Programmierprinzip verwirklicht.
 
 
 
-**Warum Multithreaded Executer**
+**Warum Multithreaded Executor**
 
-Es hat sich heraus gestellt das die rclpy spin once auf dem Raspberry Pie nicht möglich.   
+Es hat sich herausgestellt, dass die rclpy spin once auf dem Raspberry Pi nicht möglich ist.   
 
 **Warum cancel_current_action**
 
-Um in den Follow Modus zukommen müssen die andere Goals gecancelt werden.
+Um in den Follow-Modus zu kommen, müssen die anderen Goals gecancelt werden.
 
 **Warum nicht OpenCV-ArUco-Winkelberechnungsfunktionen**
 
@@ -471,7 +476,7 @@ Die Winkelrückgabe der OpenCV-Funktion hat sich als unzuverlässig und undurchs
 - Vorteil: Thread-safe, keine Race Conditions
 - Nachteil: Langsamer, da Callbacks sich "blockieren"
 
-Da wir nur einen Callback pro Variable haben ist unser Entscheidung auf Reeantrant Callback Group gefallen. 
+Da wir nur einen Callback pro Variable haben, ist unsere Entscheidung auf ReentrantCallbackGroup gefallen. 
 
 **Follow-Action-Server in Extra ActionServer Node**
 
@@ -483,11 +488,13 @@ Da wir keine Goals haben, welche wir ablehnen, akzeptieren wir alle Goals und ge
 
 **Getter nur für bestimmte Variablen**
 
-Die Getter wurden nur bei Variablen verwendet, bei denen Locking relevant ist. Dies dient der Vereinfachung bei der  Implementierung.
+Die Getter wurden nur bei Variablen verwendet, bei denen Locking relevant ist. Dies dient der Vereinfachung bei der Implementierung.
 
 **State Machine mit match-case statt If-Else**
 
 Durch State Machine mit match-case sind Strukturen und aktuelle Aktionen klar. Auch für das Debugging und die Wartung des Codes bringen sie enorme Vorteile. 
+
+---
 
 ## Auswertung des Gesamtsystems
 
@@ -495,15 +502,11 @@ Das CanalChecker-System ist eine **hierarchische ROS2-Architektur** mit:
 
 1. **Zentraler Koordination** (ActionServerHandler)
 2. **Spezialisierte Action Server** für verschiedene Missionsphasen
-3. **State Machines** für komplexe Verhaltenablläufe
+3. **State Machines** für komplexe Verhaltensabläufe
 4. **P-Regelung** für präzise Bewegungskontrolle
 5. **Computer Vision** mit ArUco-Markererkennung
 6. **Asynchrones Callback-System** für nicht-blockierende Operationen
 
 Der Workflow folgt automatisch: Align → Drive → Follow, wobei der Übergang zu Follow durch die Erkennung von Marker 69 automatisch ausgelöst wird.
 
-Das System funktioniert unter den gegeben Randbedingungen ohne weitere Probleme und hat keine bekannten Bugs.  
-
-
-
-
+Das System funktioniert unter den gegebenen Randbedingungen ohne weitere Probleme und hat keine bekannten Bugs.
