@@ -30,6 +30,16 @@ Es gab folgende Änderungen:
 Ist im Git zufinden oder im zugesendeten Ordner.
 [GitHub Link](https://github.com/yaba-source/canalchecker)
 
+### Randbedingungen für das System
+- Marker mit ID 0 auf beiden Seiten des Kanals
+- Marker mit ID 69 auf dem zu folgendem Roboter hinten geklebt
+- Gute Beleuchtung und Sichtbarkeit der Marker 
+- Die Marker Größe entspricht der in der Detector funktion angegeben
+- WLAN Verbindung zum Roboter
+- Aufbau entspticht dem Testaufbau
+- Marker in Sichtweite für Kamera
+- Oberfläche für den Roboter befahrbar
+
 ### Komponenten
 - **ActionServerHandler**: Zentrale Koordination, Aruco-Trigger-System
 - **Action Server**: DriveActionServer, AlignActionServer, FollowActionServer
@@ -37,14 +47,6 @@ Ist im Git zufinden oder im zugesendeten Ordner.
 - **Machine Vision**: ArucoMarkerDetector (Markererkennung)
 - **Pub/Sub System**: Topics für Aruco-Daten, Geschwindigkeit, Zielabstand
 
-### Randbedingungen für das System
-- Gute Beleuchtung und Sichtbarkeit der Marker 
-- Die Marker Größe entspricht der in der Detector funktion angegeben
-- WLAN Verbindung zum Roboter
-- Aufbau entspticht dem Testaufbau
-- Marker in Sichtweite für Kamera
-- Oberfläche für den Roboter befahrbar
----
 
 ## ActionServerHandler
 
@@ -155,8 +157,7 @@ class AlignActionServer(Node):
 
 **Zweck**: Folge einem Zielmarker
 
-```python
-class FollowActionServer(Node):
+ FollowActionServer 
     Topics:
     - Input: /aruco_detections (Marker-Info)
     - Input: /target_distance (Zielabstand aus Goal)
@@ -169,7 +170,6 @@ class FollowActionServer(Node):
     - Kontinuierliche Verfolgung
     - Abstandsregelung
     - Winkelausrichtung
-```
 
 **Ablauf**:
 1. Suche Marker 69
